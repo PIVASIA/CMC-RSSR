@@ -41,18 +41,30 @@ def get_train_loader(args):
         train_dataset = ImageDataset(data_folder, image_list, transform=train_transform)
         train_sampler = None
     else:
-        transformations = [MultispectralRandomResizedCrop(224, scale=(args.crop_low, 1.)),
-                           MultispectralRandomHorizontalFlip()]
-        
-        transformations += [ScalerPCA('./scaler_pca', use_pca=args.pca), transforms.ToTensor()]
+        transformations = [
+            MultispectralRandomResizedCrop(224, scale=(args.crop_low, 1.)),
+            MultispectralRandomHorizontalFlip()
+        ]
+
+        transformations += [
+            ScalerPCA('./scaler_pca', use_pca=args.pca),
+            transforms.ToTensor()
+        ]
         train_transform = transforms.Compose(transformations)
-        train_dataset = MultispectralImageDataset(data_folder, image_list, transform=train_transform)
+        train_dataset = MultispectralImageDataset(data_folder,
+                                                  image_list,
+                                                  transform=train_transform)
         train_sampler = None
 
     # train loader
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.num_workers, pin_memory=True, sampler=train_sampler)
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=(train_sampler is None),
+        num_workers=args.num_workers,
+        pin_memory=True,
+        sampler=train_sampler
+    )
 
     # num of samples
     n_data = len(train_dataset)
