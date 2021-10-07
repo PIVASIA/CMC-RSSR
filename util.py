@@ -81,7 +81,7 @@ def parse_option(CMC_training=False):
                         help='path to latest checkpoint (default: none)')
 
     # model definition
-    parser.add_argument('--model', type=str, default='alexnet', choices=['alexnet', 'resnet50', 'resnet101'])
+    parser.add_argument('--model', type=str, default='alexnet', choices=['alexnet', 'resnet18', 'resnet50', 'resnet101'])
     parser.add_argument('--nce_k', type=int, default=4096)
     parser.add_argument('--nce_t', type=float, default=0.07)
     parser.add_argument('--nce_m', type=float, default=0.5)

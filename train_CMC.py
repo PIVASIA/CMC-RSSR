@@ -8,6 +8,7 @@ import warnings
 import torch
 import torch.backends.cudnn as cudnn
 from torchvision import transforms
+import pytorch_lightning as pl
 
 from dataset import (ImageDataset, MultispectralImageDataset,
                      MultispectralRandomHorizontalFlip,
@@ -19,6 +20,9 @@ from NCE.NCECriterion import NCECriterion
 from util import AverageMeter, adjust_learning_rate, parse_option
 
 warnings.filterwarnings("ignore")
+
+DATASET_MEAN = [395.2578, 548.2824, 659.7652, 541.0414, 722.1775, 1016.3951, 1166.1165, 1232.2306, 1313.5893, 1347.3470, 900.3346]
+DATASET_STD = [290.2383, 378.0133, 395.4832, 384.9488, 505.8480, 787.9814, 909.9235, 982.9118, 1055.6485, 1146.3106, 797.1838]
 
 
 def get_train_loader(args):
@@ -47,7 +51,7 @@ def get_train_loader(args):
         ]
 
         transformations += [
-            ScalerPCA('./scaler_pca', use_pca=args.pca),
+            transforms.Normalize(mean=DATASET_MEAN, std=DATASET_STD)
             transforms.ToTensor()
         ]
         train_transform = transforms.Compose(transformations)
@@ -72,6 +76,63 @@ def get_train_loader(args):
 
     return train_loader, n_data
 
+
+class CMCEncoder(pl.LightningModule):
+    def __init__(self, 
+                 model_name, 
+                 n_data, 
+                 args):
+        super().__init__()
+        self.save_hyperparameters()
+
+        self.model_name = model_name
+        self.n_data = n_data
+
+        # set the model
+        if model_name == 'alexnet':
+            if multispectral:
+                self.model = multispectral_alexnet(feat_dim)
+            else:
+                self.model = alexnet(feat_dim)
+        elif model_name.startswith('resnet'):
+            if multispectral:
+                self.model = multispectral_ResNetV2(model_name)
+            else:
+                self.model = ResNetV2(model_name)
+        else:
+            raise ValueError('model not supported yet {}'.format(model_name))
+
+    def _set_model(self):
+        # set the model
+        if args.model == 'alexnet':
+            if args.multispectral:
+                model = multispectral_alexnet(args.feat_dim)
+            else:
+                model = alexnet(args.feat_dim)
+        elif args.model.startswith('resnet'):
+            if args.multispectral:
+                model = multispectral_ResNetV2(args.model)
+            else:
+                model = ResNetV2(args.model)
+        else:
+            raise ValueError('model not supported yet {}'.format(args.model))
+
+
+    def forward(self, x):
+        pass
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.SGD(self.parameters(),
+                                    lr=args.learning_rate,
+                                    momentum=args.momentum,
+                                    weight_decay=args.weight_decay)
+        return optimizer
+
+    def training_step(self, train_batch, batch_idx):
+        pass
+
+    def validation_step(self, val_batch, batch_idx):
+        pass
 
 def set_model(args, n_data):
     # set the model
@@ -182,7 +243,6 @@ def train(epoch, train_loader, model, contrast, criterion_l, criterion_ab, optim
 
 
 def main():
-
     # parse the args
     args = parse_option(True)
 
@@ -212,7 +272,6 @@ def main():
 
     # routine
     for epoch in range(args.start_epoch, args.epochs + 1):
-
         adjust_learning_rate(epoch, args, optimizer)
         print("==> training...")
 
