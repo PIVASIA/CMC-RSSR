@@ -90,7 +90,7 @@ def parse_option(CMC_training=False):
 
     # specify folder
     parser.add_argument('--data_folder', type=str, default=None, help='path to data')
-    parser.add_argument('--model_path', type=str, default=None, help='path to save model')
+    parser.add_argument('--model_folder', type=str, default=None, help='path to save model')
 
     # specify list of images to use
     parser.add_argument('--image_list', type=str, default=None, help='list of images to use')

@@ -6,9 +6,10 @@ import time
 import warnings
 
 import torch
-import torch.backends.cudnn as cudnn
 from torchvision import transforms
+
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 from dataset import (ImageDataset, MultispectralImageDataset,
                      MultispectralRandomHorizontalFlip,
@@ -77,169 +78,91 @@ def get_train_loader(args):
     return train_loader, n_data
 
 
-class CMCEncoder(pl.LightningModule):
-    def __init__(self, 
-                 model_name, 
-                 n_data, 
+class CMCModel(pl.LightningModule):
+    def __init__(self,
+                 n_data,
                  args):
         super().__init__()
         self.save_hyperparameters()
 
-        self.model_name = model_name
         self.n_data = n_data
-
-        # set the model
-        if model_name == 'alexnet':
-            if multispectral:
-                self.model = multispectral_alexnet(feat_dim)
-            else:
-                self.model = alexnet(feat_dim)
-        elif model_name.startswith('resnet'):
-            if multispectral:
-                self.model = multispectral_ResNetV2(model_name)
-            else:
-                self.model = ResNetV2(model_name)
-        else:
-            raise ValueError('model not supported yet {}'.format(model_name))
+        self.args = args
+        self._set_model()
 
     def _set_model(self):
         # set the model
-        if args.model == 'alexnet':
-            if args.multispectral:
-                model = multispectral_alexnet(args.feat_dim)
+        if self.args.model == 'alexnet':
+            if self.args.multispectral:
+                self.model = multispectral_alexnet(self.args.feat_dim)
             else:
-                model = alexnet(args.feat_dim)
-        elif args.model.startswith('resnet'):
-            if args.multispectral:
-                model = multispectral_ResNetV2(args.model)
+                self.model = alexnet(self.args.feat_dim)
+        elif self.args.args.model.startswith('resnet'):
+            if self.args.multispectral:
+                self.model = multispectral_ResNetV2(self.args.model)
             else:
-                model = ResNetV2(args.model)
+                self.model = ResNetV2(self.args.model)
         else:
-            raise ValueError('model not supported yet {}'.format(args.model))
+            raise ValueError(
+                'model not supported yet {}'.format(self.args.model)
+            )
 
+        # setup criterion
+        self.contrast = NCEAverage(self.args.feat_dim,
+                                   self.n_data,
+                                   self.args.nce_k,
+                                   self.args.nce_t,
+                                   self.args.nce_m)
+        self.criterion_l = NCECriterion(self.n_data)
+        self.criterion_ab = NCECriterion(self.n_data)
 
     def forward(self, x):
         pass
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(),
-                                    lr=args.learning_rate,
-                                    momentum=args.momentum,
-                                    weight_decay=args.weight_decay)
+                                    lr=self.args.learning_rate,
+                                    momentum=self.args.momentum,
+                                    weight_decay=self.args.weight_decay)
         return optimizer
 
     def training_step(self, train_batch, batch_idx):
-        pass
+        inputs, _, index = train_batch
+
+        # bsz = inputs.size(0)
+        inputs = inputs.float()
+
+        # forward
+        feat_l, feat_ab = self.model(inputs)
+        out_l, out_ab = self.contrast(feat_l, feat_ab, index)
+
+        l_loss = self.criterion_l(out_l)
+        ab_loss = self.criterion_ab(out_ab)
+        l_prob = out_l[:, 0].mean()
+        ab_prob = out_ab[:, 0].mean()
+        loss = l_loss + ab_loss
+        self.log(
+            'performance',
+            {
+                "loss": loss,
+                "l_loss": l_loss,
+                "l_prob": l_prob,
+                "ab_loss": ab_loss,
+                "ab_prob": ab_prob
+            },
+            prog_bar=True,
+            logger=True
+        )
+
+        return {
+            "loss": loss,
+            "l_loss": l_loss,
+            "l_prob": l_prob,
+            "ab_loss": ab_loss,
+            "ab_prob": ab_prob
+        }
 
     def validation_step(self, val_batch, batch_idx):
         pass
-
-def set_model(args, n_data):
-    # set the model
-    if args.model == 'alexnet':
-        if args.multispectral:
-            model = multispectral_alexnet(args.feat_dim)
-        else:
-            model = alexnet(args.feat_dim)
-    elif args.model.startswith('resnet'):
-        if args.multispectral:
-            model = multispectral_ResNetV2(args.model)
-        else:
-            model = ResNetV2(args.model)
-    else:
-        raise ValueError('model not supported yet {}'.format(args.model))
-    contrast = NCEAverage(args.feat_dim, n_data, args.nce_k, args.nce_t, args.nce_m)
-    criterion_l = NCECriterion(n_data)
-    criterion_ab = NCECriterion(n_data)
-
-    if torch.cuda.is_available():
-        if torch.cuda.device_count() > 1:
-            model = torch.nn.DataParallel(model).cuda()
-        else:
-            model = model.cuda()
-        contrast = contrast.cuda()
-        criterion_ab = criterion_ab.cuda()
-        criterion_l = criterion_l.cuda()
-        cudnn.benchmark = True
-
-    return model, contrast, criterion_ab, criterion_l
-
-
-def set_optimizer(args, model):
-    # return optimizer
-    optimizer = torch.optim.SGD(model.parameters(),
-                                lr=args.learning_rate,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
-    return optimizer
-
-
-def train(epoch, train_loader, model, contrast, criterion_l, criterion_ab, optimizer, opt):
-    """
-    one epoch training
-    """
-    model.train()
-    contrast.train()
-
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter()
-    l_loss_meter = AverageMeter()
-    ab_loss_meter = AverageMeter()
-    l_prob_meter = AverageMeter()
-    ab_prob_meter = AverageMeter()
-
-    end = time.time()
-    for idx, (inputs, _, index) in enumerate(train_loader):
-        data_time.update(time.time() - end)
-
-        bsz = inputs.size(0)
-        inputs = inputs.float()
-        if torch.cuda.is_available():
-            index = index.cuda(async=True)
-            inputs = inputs.cuda()
-
-        # ===================forward=====================
-        feat_l, feat_ab = model(inputs)
-        out_l, out_ab = contrast(feat_l, feat_ab, index)
-
-        l_loss = criterion_l(out_l)
-        ab_loss = criterion_ab(out_ab)
-        l_prob = out_l[:, 0].mean()
-        ab_prob = out_ab[:, 0].mean()
-
-        loss = l_loss + ab_loss
-
-        # ===================backward=====================
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        # ===================meters=====================
-        losses.update(loss.item(), bsz)
-        l_loss_meter.update(l_loss.item(), bsz)
-        l_prob_meter.update(l_prob.item(), bsz)
-        ab_loss_meter.update(ab_loss.item(), bsz)
-        ab_prob_meter.update(ab_prob.item(), bsz)
-
-        batch_time.update(time.time() - end)
-        end = time.time()
-
-        # print info
-        if (idx + 1) % opt.print_freq == 0:
-            print('Train: [{0}][{1}/{2}]\t'
-                  'BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'DT {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'loss {loss.val:.3f} ({loss.avg:.3f})\t'
-                  'l_p {lprobs.val:.3f} ({lprobs.avg:.3f})\t'
-                  'ab_p {abprobs.val:.3f} ({abprobs.avg:.3f})'.format(
-                   epoch, idx + 1, len(train_loader), batch_time=batch_time,
-                   data_time=data_time, loss=losses, lprobs=l_prob_meter,
-                   abprobs=ab_prob_meter))
-            print(out_l.shape)
-            sys.stdout.flush()
-
-    return l_loss_meter.avg, l_prob_meter.avg, ab_loss_meter.avg, ab_prob_meter.avg
 
 
 def main():
@@ -250,51 +173,22 @@ def main():
     train_loader, n_data = get_train_loader(args)
 
     # set the model
-    model, contrast, criterion_ab, criterion_l = set_model(args, n_data)
+    if os.path.isfile(args.resume):
+        model = CMCModel.load_from_checkpoint(args.resume)
+    else:
+        model = CMCModel(n_data, args)
 
-    # set the optimizer
-    optimizer = set_optimizer(args, model)
+    # define callbacks
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_loss",
+        dirpath=args.model_folder,
+        filename="{epoch:02d}-{val_loss:.2f}",
+        save_top_k=3,
+        mode="min"
+    )
 
-    # optionally resume from a checkpoint
-    args.start_epoch = 1
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume)
-            args.start_epoch = checkpoint['epoch'] + 1
-            model.load_state_dict(checkpoint['model'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            contrast.load_state_dict(checkpoint['contrast'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch']))
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
-
-    # routine
-    for epoch in range(args.start_epoch, args.epochs + 1):
-        adjust_learning_rate(epoch, args, optimizer)
-        print("==> training...")
-
-        time1 = time.time()
-        l_loss, l_prob, ab_loss, ab_prob = train(epoch, train_loader, model, contrast, criterion_l, criterion_ab,
-                                                 optimizer, args)
-        time2 = time.time()
-        print('epoch {}, total time {:.2f}'.format(epoch, time2 - time1))
-
-        # save model
-        if epoch % args.save_freq == 0:
-            print('==> Saving...')
-            state = {
-                'opt': args,
-                'model': model.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'contrast': contrast.state_dict(),
-                'epoch': epoch,
-            }
-            save_file = os.path.join(args.model_folder, 'ckpt_epoch_{epoch}.pth'.format(epoch=epoch))
-            torch.save(state, save_file)
-
-        pass
+    trainer = pl.Trainer(callbacks=[checkpoint_callback])
+    trainer.fit(model, train_loader)
 
 
 if __name__ == '__main__':
