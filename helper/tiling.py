@@ -51,12 +51,10 @@ def tiling(filepath, output_path, tile_size=256, overlap=16):
                                  units="PIXELS")
 
 
-
 def batch_tiling(input_path, output_path, tile_size=256, overlap=16):
     filepaths = glob(os.path.join(input_path, "*.TIF"))
     for filepath in filepaths:
         tiling(filepath, output_path, tile_size=tile_size, overlap=overlap)
-
 
 
 if __name__ == "__main__":

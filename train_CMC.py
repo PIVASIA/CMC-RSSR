@@ -6,76 +6,19 @@ import time
 import warnings
 
 import torch
-from torchvision import transforms
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from dataset import (ImageDataset, MultispectralImageDataset,
-                     MultispectralRandomHorizontalFlip,
-                     MultispectralRandomResizedCrop, RGB2Lab, ScalerPCA)
+from dataset import get_train_loader
+
 from models.alexnet import alexnet, multispectral_alexnet
-from models.resnet import ResNetV2, multispectral_ResNetV2
+from models.resnet import ResNetV2, multispectral_ResNet
 from NCE.NCEAverage import NCEAverage
 from NCE.NCECriterion import NCECriterion
 from util import AverageMeter, adjust_learning_rate, parse_option
 
 warnings.filterwarnings("ignore")
-
-DATASET_MEAN = [395.2578, 548.2824, 659.7652, 541.0414, 722.1775, 1016.3951, 1166.1165, 1232.2306, 1313.5893, 1347.3470, 900.3346]
-DATASET_STD = [290.2383, 378.0133, 395.4832, 384.9488, 505.8480, 787.9814, 909.9235, 982.9118, 1055.6485, 1146.3106, 797.1838]
-
-
-def get_train_loader(args):
-    """get the train loader"""
-    data_folder = args.data_folder
-    image_list = args.image_list
-
-    if not args.multispectral:
-        normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-86.183 + 98.233) / 2, (-107.857 + 94.478) / 2],
-                                         std=[(100 - 0) / 2, (86.183 + 98.233) / 2, (107.857 + 94.478) / 2])
-
-        transformations = [transforms.RandomResizedCrop(224, scale=(args.crop_low, 1.)),
-                           transforms.RandomHorizontalFlip()]
-
-        if args.resize_image_aug:
-            transformations.insert(0, transforms.Resize((256, 256)))
-
-        transformations += [RGB2Lab(), transforms.ToTensor(), normalize]
-        train_transform = transforms.Compose(transformations)
-        train_dataset = ImageDataset(data_folder, image_list, transform=train_transform)
-        train_sampler = None
-    else:
-        transformations = [
-            MultispectralRandomResizedCrop(224, scale=(args.crop_low, 1.)),
-            MultispectralRandomHorizontalFlip()
-        ]
-
-        transformations += [
-            transforms.Normalize(mean=DATASET_MEAN, std=DATASET_STD)
-            transforms.ToTensor()
-        ]
-        train_transform = transforms.Compose(transformations)
-        train_dataset = MultispectralImageDataset(data_folder,
-                                                  image_list,
-                                                  transform=train_transform)
-        train_sampler = None
-
-    # train loader
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=args.batch_size,
-        shuffle=(train_sampler is None),
-        num_workers=args.num_workers,
-        pin_memory=True,
-        sampler=train_sampler
-    )
-
-    # num of samples
-    n_data = len(train_dataset)
-    print('number of samples: {}'.format(n_data))
-
-    return train_loader, n_data
 
 
 class CMCModel(pl.LightningModule):
@@ -96,9 +39,11 @@ class CMCModel(pl.LightningModule):
                 self.model = multispectral_alexnet(self.args.feat_dim)
             else:
                 self.model = alexnet(self.args.feat_dim)
-        elif self.args.args.model.startswith('resnet'):
+        elif self.args.model.startswith('resnet'):
             if self.args.multispectral:
-                self.model = multispectral_ResNetV2(self.args.model)
+                self.model = multispectral_ResNet(channels_l=self.args.channels_l,
+                                                  channels_ab=self.args.channels_ab,
+                                                  name=self.args.model)
             else:
                 self.model = ResNetV2(self.args.model)
         else:
@@ -187,7 +132,7 @@ def main():
         mode="min"
     )
 
-    trainer = pl.Trainer(callbacks=[checkpoint_callback])
+    trainer = pl.Trainer(callbacks=[checkpoint_callback], gpus=args.gpu)
     trainer.fit(model, train_loader)
 
 

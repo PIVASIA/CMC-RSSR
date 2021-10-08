@@ -1,3 +1,4 @@
 data_splits/NWPU*
 */__pycache__
 .vscode/*
+lightning_logs/

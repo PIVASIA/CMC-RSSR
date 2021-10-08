@@ -288,45 +288,36 @@ class ResNetV2(nn.Module):
         return feat_l, feat_ab
 
 
-class multispectral_ResNetV1(nn.Module):
-    def __init__(self, name='resnet50'):
-        super(multispectral_ResNetV1, self).__init__()
+class multispectral_ResNet(nn.Module):
+    def __init__(self, 
+                 channels_l,
+                 channels_ab,
+                 name='resnet50',
+                 is_half=False):
+        super(multispectral_ResNet, self).__init__()
+
+        self.channels_l = channels_l
+        self.channels_ab = channels_ab
+        self.is_half = is_half
+
+        in_channel_l = len(self.channels_l)
+        in_channel_ab = len(self.channels_ab)
+        
         if name == 'resnet50':
-            self.l_to_ab = resnet50(in_channel=5, is_half=True)
-            self.ab_to_l = resnet50(in_channel=5, is_half=True)
+            self.l_to_ab = resnet50(in_channel=in_channel_l, is_half=self.is_half)
+            self.ab_to_l = resnet50(in_channel=in_channel_ab, is_half=self.is_half)
         elif name == 'resnet18':
-            self.l_to_ab = resnet18(in_channel=5, is_half=True)
-            self.ab_to_l = resnet18(in_channel=5, is_half=True)
+            self.l_to_ab = resnet18(in_channel=in_channel_l, is_half=self.is_half)
+            self.ab_to_l = resnet18(in_channel=in_channel_ab, is_half=self.is_half)
         elif name == 'resnet101':
-            self.l_to_ab = resnet101(in_channel=5, is_half=True)
-            self.ab_to_l = resnet101(in_channel=5, is_half=True)
+            self.l_to_ab = resnet101(in_channel=in_channel_l, is_half=self.is_half)
+            self.ab_to_l = resnet101(in_channel=in_channel_ab, is_half=self.is_half)
         else:
             raise NotImplementedError('model {} is not implemented'.format(name))
 
-    def forward(self, x, layer=7):
-        l, ab = x[:, [0, 6, 7, 8, 9], ...], x[:, [1, 2, 3, 4, 5], ...]
-        feat_l = self.l_to_ab(l, layer)
-        feat_ab = self.ab_to_l(ab, layer)
-        return feat_l, feat_ab
-
-
-class multispectral_ResNetV2(nn.Module):
-    def __init__(self, name='resnet50'):
-        super(multispectral_ResNetV2, self).__init__()
-        if name == 'resnet50':
-            self.l_to_ab = resnet50(in_channel=5)
-            self.ab_to_l = resnet50(in_channel=5)
-        elif name == 'resnet18':
-            self.l_to_ab = resnet18(in_channel=5)
-            self.ab_to_l = resnet18(in_channel=5)
-        elif name == 'resnet101':
-            self.l_to_ab = resnet101(in_channel=5)
-            self.ab_to_l = resnet101(in_channel=5)
-        else:
-            raise NotImplementedError('model {} is not implemented'.format(name))
 
     def forward(self, x, layer=7):
-        l, ab = x[:, [0, 6, 7, 8, 9], ...], x[:, [1, 2, 3, 4, 5], ...]
+        l, ab = x[:, self.channels_l, ...], x[:, self.channels_ab, ...]
         feat_l = self.l_to_ab(l, layer)
         feat_ab = self.ab_to_l(ab, layer)
         return feat_l, feat_ab

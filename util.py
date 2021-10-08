@@ -90,12 +90,14 @@ def parse_option(CMC_training=False):
 
     # specify folder
     parser.add_argument('--data_folder', type=str, default=None, help='path to data')
-    parser.add_argument('--model_folder', type=str, default=None, help='path to save model')
+    parser.add_argument('--model_path', type=str, default=None, help='path to save model')
 
     # specify list of images to use
     parser.add_argument('--image_list', type=str, default=None, help='list of images to use')
     parser.add_argument('--train_image_list', type=str, default=None, help='list of images for training of the finetuned model')
     parser.add_argument('--val_image_list', type=str, default=None, help='list of images for validation of the finetuned model')
+    parser.add_argument('--channels_l', nargs="+", type=int, help='list of multispectral channels for view l')
+    parser.add_argument('--channels_ab', nargs="+", type=int, help='list of multispectral channels for view ab')
 
     # specify multilabel classification mapping
     parser.add_argument('--multilabel_targets', type=str, default=None, help='path to pickeled dictionary of image:target mappings for multilabel datasets')
@@ -140,7 +142,7 @@ def parse_option(CMC_training=False):
                         help='distributed backend')
     parser.add_argument('--seed', default=None, type=int,
                         help='seed for initializing training. ')
-    parser.add_argument('--gpu', default=None, type=int,
+    parser.add_argument('--gpu', default=1, type=int,
                         help='GPU id to use.')
     parser.add_argument('--multiprocessing-distributed', action='store_true',
                         help='Use multi-processing distributed training to launch '
