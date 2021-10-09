@@ -52,11 +52,11 @@ class NCEAverage(nn.Module):
         if Z_l < 0:
             self.params[2] = out_l.mean() * outputSize
             Z_l = self.params[2].clone().detach().item()
-            print("normalization constant Z_l is set to {:.1f}".format(Z_l))
+            # print("normalization constant Z_l is set to {:.1f}".format(Z_l))
         if Z_ab < 0:
             self.params[3] = out_ab.mean() * outputSize
             Z_ab = self.params[3].clone().detach().item()
-            print("normalization constant Z_ab is set to {:.1f}".format(Z_ab))
+            # print("normalization constant Z_ab is set to {:.1f}".format(Z_ab))
 
         # compute out_l, out_ab
         out_l = torch.div(out_l, Z_l).contiguous()

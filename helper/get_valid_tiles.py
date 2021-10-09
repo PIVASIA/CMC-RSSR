@@ -28,7 +28,7 @@ def main(args):
         raster = gdal.Open(filepath)
         
         # validate size
-        if raster.RasterYSize != args.valid_height and \
+        if raster.RasterYSize != args.valid_height or \
            raster.RasterXSize != args.valid_width:
            continue
         

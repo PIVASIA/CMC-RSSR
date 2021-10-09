@@ -85,18 +85,23 @@ class CMCModel(pl.LightningModule):
         l_prob = out_l[:, 0].mean()
         ab_prob = out_ab[:, 0].mean()
         loss = l_loss + ab_loss
-        self.log(
-            'performance',
-            {
-                "loss": loss,
-                "l_loss": l_loss,
-                "l_prob": l_prob,
-                "ab_loss": ab_loss,
-                "ab_prob": ab_prob
-            },
-            prog_bar=True,
-            logger=True
-        )
+        
+        # self.log(
+        #     'train',
+        #     {
+        #         "loss": loss,
+        #         "l_loss": l_loss,
+        #         "l_prob": l_prob,
+        #         "ab_loss": ab_loss,
+        #         "ab_prob": ab_prob
+        #     },
+        #     prog_bar=True,
+        #     logger=True,
+        #     on_step=False, 
+        #     on_epoch=True
+        # )
+
+        self.log('train_loss', loss, on_step=False, on_epoch=True)
 
         return {
             "loss": loss,
@@ -125,14 +130,14 @@ def main():
 
     # define callbacks
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",
+        monitor="train_loss",
         dirpath=args.model_folder,
-        filename="{epoch:02d}-{val_loss:.2f}",
+        filename="{epoch:02d}-{train_loss:.2f}",
         save_top_k=3,
         mode="min"
     )
 
-    trainer = pl.Trainer(callbacks=[checkpoint_callback], gpus=args.gpu)
+    trainer = pl.Trainer(callbacks=[checkpoint_callback], gpus=args.gpu, max_epochs=args.epochs)
     trainer.fit(model, train_loader)
 
 
