@@ -16,7 +16,7 @@ from models.alexnet import alexnet, multispectral_alexnet
 from models.resnet import ResNetV2, multispectral_ResNet
 from NCE.NCEAverage import NCEAverage
 from NCE.NCECriterion import NCECriterion
-from util import AverageMeter, adjust_learning_rate, parse_option
+from util import parse_option
 
 warnings.filterwarnings("ignore")
 
@@ -41,9 +41,10 @@ class CMCModel(pl.LightningModule):
                 self.model = alexnet(self.args.feat_dim)
         elif self.args.model.startswith('resnet'):
             if self.args.multispectral:
-                self.model = multispectral_ResNet(channels_l=self.args.channels_l,
-                                                  channels_ab=self.args.channels_ab,
-                                                  name=self.args.model)
+                self.model = multispectral_ResNet(
+                                channels_l=self.args.channels_l,
+                                channels_ab=self.args.channels_ab,
+                                name=self.args.model)
             else:
                 self.model = ResNetV2(self.args.model)
         else:
@@ -61,13 +62,16 @@ class CMCModel(pl.LightningModule):
         self.criterion_ab = NCECriterion(self.n_data)
 
     def forward(self, x):
-        pass
+        x = x.float()
+        feat_l, feat_ab = self.model(x)
+        return feat_l, feat_ab
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(),
                                     lr=self.args.learning_rate,
                                     momentum=self.args.momentum,
                                     weight_decay=self.args.weight_decay)
+
         return optimizer
 
     def training_step(self, train_batch, batch_idx):
@@ -85,21 +89,6 @@ class CMCModel(pl.LightningModule):
         l_prob = out_l[:, 0].mean()
         ab_prob = out_ab[:, 0].mean()
         loss = l_loss + ab_loss
-        
-        # self.log(
-        #     'train',
-        #     {
-        #         "loss": loss,
-        #         "l_loss": l_loss,
-        #         "l_prob": l_prob,
-        #         "ab_loss": ab_loss,
-        #         "ab_prob": ab_prob
-        #     },
-        #     prog_bar=True,
-        #     logger=True,
-        #     on_step=False, 
-        #     on_epoch=True
-        # )
 
         self.log('train_loss', loss, on_step=False, on_epoch=True)
 
@@ -137,7 +126,9 @@ def main():
         mode="min"
     )
 
-    trainer = pl.Trainer(callbacks=[checkpoint_callback], gpus=args.gpu, max_epochs=args.epochs)
+    trainer = pl.Trainer(callbacks=[checkpoint_callback],
+                         gpus=args.gpu,
+                         max_epochs=args.epochs)
     trainer.fit(model, train_loader)
 
 
