@@ -74,11 +74,10 @@ class CMCModel(pl.LightningModule):
     def training_step(self, train_batch, batch_idx):
         inputs, _, index = train_batch
 
-        # bsz = inputs.size(0)
-        inputs = inputs.float()
-
         # forward
-        feat_l, feat_ab = self.model(inputs)
+        feat_l, feat_ab = self(inputs)
+
+        # calculating loss
         out_l, out_ab = self.contrast(feat_l, feat_ab, index)
 
         l_loss = self.criterion_l(out_l)
