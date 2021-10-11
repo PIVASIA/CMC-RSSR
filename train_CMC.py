@@ -1,12 +1,9 @@
 from __future__ import print_function
 
 import os
-import sys
-import time
 import warnings
 
 import torch
-
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
