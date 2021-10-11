@@ -45,15 +45,3 @@ class LearningRateScheduler(_LRScheduler):
     def get_lr(self):
         for g in self.optimizer.param_groups:
             return g['lr']
-
-
-class CustomLRScheduler(LearningRateScheduler):
-    def __init__(self, optimizer, init_lr):
-        super(CustomLRScheduler, self).__init__(optimizer, init_lr)
-
-    def step(self):
-        if self.update_steps > 0:
-            new_lr = self.optimizer.learning_rate * \
-                        (self.optimizer.lr_decay_rate ** self.update_steps)
-            for param_group in self.optimizer.param_groups:
-                param_group['lr'] = new_lr
