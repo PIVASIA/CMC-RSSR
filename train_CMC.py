@@ -160,6 +160,7 @@ def main():
 
     # set the datamodule
     dm = CMCDataModule(args)
+    dm.setup(stage="fit")
 
     # set the model
     if os.path.isfile(args.resume):
