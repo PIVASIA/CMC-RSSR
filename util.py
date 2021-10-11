@@ -91,6 +91,7 @@ def parse_option(CMC_training=False):
     # specify folder
     parser.add_argument('--data_folder', type=str, default=None, help='path to data')
     parser.add_argument('--model_path', type=str, default=None, help='path to save model')
+    parser.add_argument('--dataset_name', type=str, default="s2", help='name of dataset', choices=['s2', 'l8'])
 
     # specify list of images to use
     parser.add_argument('--image_list', type=str, default=None, help='list of images to use')

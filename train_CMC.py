@@ -6,14 +6,19 @@ import warnings
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-
-from dataset import get_train_loader
+from torchvision import transforms
 
 from models.alexnet import alexnet, multispectral_alexnet
 from models.resnet import ResNetV2, multispectral_ResNet
 from NCE.NCEAverage import NCEAverage
 from NCE.NCECriterion import NCECriterion
 from util import parse_option
+from multispectral_transform import (
+                MultispectralRandomHorizontalFlip,
+                MultispectralRandomResizedCrop,
+                StandardScaler)
+from dataset import MultispectralImageDataset
+from constants import DATASET_MEAN, DATASET_STD
 
 warnings.filterwarnings("ignore")
 
@@ -104,54 +109,47 @@ class CMCDataModule(pl.LightningDataModule):
     def __init__(self, args):
         super().__init__()
         self.args = args
-    
+
+        transformations = [
+            MultispectralRandomResizedCrop(224, scale=(args.crop_low, 1.)),
+            MultispectralRandomHorizontalFlip()
+        ]
+
+        transformations += [
+            StandardScaler(DATASET_MEAN[self.args.dataset_name],
+                           DATASET_STD[self.args.dataset_name]),
+            transforms.ToTensor()
+        ]
+        self.transform = transforms.Compose(transformations)
+
     def prepare_data(self):
         # called only on 1 GPU
         pass
-    
-    def setup(self, stage: Optional[str] = None):
+
+    def setup(self, stage=None):
         # called on every GPU
-        if not self.args.multispectral:
-            self.train_dataset = ImageDataset(self.args.data_folder, 
-                                              self.args.image_list, 
-                                              transform=train_transform)
-    
+        # Assign train/val datasets for use in dataloaders
+        if stage == "fit" or stage is None:
+            self.train_dataset = \
+                MultispectralImageDataset(self.args.data_folder,
+                                          self.args.image_list,
+                                          transform=self.transform)
+            self.n_data = len(self.train_dataset)
+
     def train_dataloader(self):
-        if not self.args.multispectral:
-            normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-86.183 + 98.233) / 2, (-107.857 + 94.478) / 2],
-                                            std=[(100 - 0) / 2, (86.183 + 98.233) / 2, (107.857 + 94.478) / 2])
+        train_sampler = None
+        return torch.utils.data.DataLoader(
+                        self.train_dataset,
+                        batch_size=self.args.batch_size,
+                        shuffle=(train_sampler is None),
+                        num_workers=self.args.num_workers,
+                        pin_memory=True,
+                        sampler=train_sampler
+        )
 
-            transformations = [transforms.RandomResizedCrop(224, scale=(self.args.crop_low, 1.)),
-                            transforms.RandomHorizontalFlip()]
-
-            if self.args.resize_image_aug:
-                transformations.insert(0, transforms.Resize((256, 256)))
-
-            transformations += [RGB2Lab(), transforms.ToTensor(), normalize]
-            train_transform = transforms.Compose(transformations)
-            
-            
-            
-            train_sampler = None
-        else:
-            transformations = [
-                MultispectralRandomResizedCrop(224, scale=(args.crop_low, 1.)),
-                MultispectralRandomHorizontalFlip()
-            ]
-
-            transformations += [
-                StandardScaler(DATASET_MEAN, DATASET_STD),
-                transforms.ToTensor()
-            ]
-            train_transform = transforms.Compose(transformations)
-            train_dataset = MultispectralImageDataset(data_folder,
-                                                    image_list,
-                                                    transform=train_transform)
-            train_sampler = None
-    
     def val_dataloader(self):
         return None
-    
+
     def test_dataloader(self):
         return None
 
@@ -160,14 +158,14 @@ def main():
     # parse the args
     args = parse_option(True)
 
-    # set the loader
-    train_loader, n_data = get_train_loader(args)
+    # set the datamodule
+    dm = CMCDataModule(args)
 
     # set the model
     if os.path.isfile(args.resume):
         model = CMCModel.load_from_checkpoint(args.resume)
     else:
-        model = CMCModel(n_data, args)
+        model = CMCModel(dm.n_data, args)
 
     # define callbacks
     checkpoint_callback = ModelCheckpoint(
@@ -181,7 +179,7 @@ def main():
     trainer = pl.Trainer(callbacks=[checkpoint_callback],
                          gpus=args.gpu,
                          max_epochs=args.epochs)
-    trainer.fit(model, train_loader)
+    trainer.fit(model, dm)
 
 
 if __name__ == '__main__':
