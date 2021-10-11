@@ -100,6 +100,62 @@ class CMCModel(pl.LightningModule):
         pass
 
 
+class CMCDataModule(pl.LightningDataModule):
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+    
+    def prepare_data(self):
+        # called only on 1 GPU
+        pass
+    
+    def setup(self, stage: Optional[str] = None):
+        # called on every GPU
+        if not self.args.multispectral:
+            self.train_dataset = ImageDataset(self.args.data_folder, 
+                                              self.args.image_list, 
+                                              transform=train_transform)
+    
+    def train_dataloader(self):
+        if not self.args.multispectral:
+            normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-86.183 + 98.233) / 2, (-107.857 + 94.478) / 2],
+                                            std=[(100 - 0) / 2, (86.183 + 98.233) / 2, (107.857 + 94.478) / 2])
+
+            transformations = [transforms.RandomResizedCrop(224, scale=(self.args.crop_low, 1.)),
+                            transforms.RandomHorizontalFlip()]
+
+            if self.args.resize_image_aug:
+                transformations.insert(0, transforms.Resize((256, 256)))
+
+            transformations += [RGB2Lab(), transforms.ToTensor(), normalize]
+            train_transform = transforms.Compose(transformations)
+            
+            
+            
+            train_sampler = None
+        else:
+            transformations = [
+                MultispectralRandomResizedCrop(224, scale=(args.crop_low, 1.)),
+                MultispectralRandomHorizontalFlip()
+            ]
+
+            transformations += [
+                StandardScaler(DATASET_MEAN, DATASET_STD),
+                transforms.ToTensor()
+            ]
+            train_transform = transforms.Compose(transformations)
+            train_dataset = MultispectralImageDataset(data_folder,
+                                                    image_list,
+                                                    transform=train_transform)
+            train_sampler = None
+    
+    def val_dataloader(self):
+        return None
+    
+    def test_dataloader(self):
+        return None
+
+
 def main():
     # parse the args
     args = parse_option(True)
