@@ -8,8 +8,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
 
-from models.alexnet import alexnet, multispectral_alexnet
-from models.resnet import ResNetV2, multispectral_ResNet
+import models.resnet as resnet
 from NCE.NCEAverage import NCEAverage
 from NCE.NCECriterion import NCECriterion
 from util import parse_option
@@ -31,41 +30,53 @@ class CMCModel(pl.LightningModule):
         self.save_hyperparameters()
 
         self.n_data = n_data
-        self.args = args
-        self._set_model()
 
-    def _set_model(self):
+        self.model = args.model
+        self.channels_l = args.channels_l
+        self.channels_ab = args.channels_ab
+        self.feat_dim = args.feat_dim
+        self.nce_k = args.nce_k
+        self.nce_t = args.nce_t
+        self.nce_m = args.nce_m
+
+        self._build_model()
+        self._set_criterion()
+
+    def _build_model(self):
         # set the model
-        if self.args.model == 'alexnet':
-            if self.args.multispectral:
-                self.model = multispectral_alexnet(self.args.feat_dim)
-            else:
-                self.model = alexnet(self.args.feat_dim)
-        elif self.args.model.startswith('resnet'):
-            if self.args.multispectral:
-                self.model = multispectral_ResNet(
-                                channels_l=self.args.channels_l,
-                                channels_ab=self.args.channels_ab,
-                                name=self.args.model)
-            else:
-                self.model = ResNetV2(self.args.model)
+        if self.model.startswith('resnet'):
+            model = getattr(resnet, self.model, lambda: None)
+            self.l_to_ab = model(in_channel=len(self.channels_l))
+            self.ab_to_l = model(in_channel=len(self.channels_ab))
         else:
             raise ValueError(
-                'model not supported yet {}'.format(self.args.model)
+                'model not supported yet {}'.format(self.model)
             )
 
+    def _set_criterion(self):
         # setup criterion
-        self.contrast = NCEAverage(self.args.feat_dim,
+        self.contrast = NCEAverage(self.feat_dim,
                                    self.n_data,
-                                   self.args.nce_k,
-                                   self.args.nce_t,
-                                   self.args.nce_m)
+                                   self.nce_k,
+                                   self.nce_t,
+                                   self.nce_m)
         self.criterion_l = NCECriterion(self.n_data)
         self.criterion_ab = NCECriterion(self.n_data)
 
+    def _forward_l(self, x, layer=7):
+        feat = self.l_to_ab(x, layer)
+        return feat
+
+    def _forward_ab(self, x, layer=7):
+        feat = self.ab_to_l(x, layer)
+        return feat
+
     def forward(self, x):
         x = x.float()
-        feat_l, feat_ab = self.model(x)
+
+        l, ab = x[:, self.channels_l, ...], x[:, self.channels_ab, ...]
+        feat_l = self._forward_l(l)
+        feat_ab = self._forward_ab(ab)
         return feat_l, feat_ab
 
     def configure_optimizers(self):

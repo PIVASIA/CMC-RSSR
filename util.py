@@ -79,58 +79,52 @@ def parse_option(CMC_training=False):
     # resume path
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
+    
+    # path to pre-trained
 
     # model definition
-    parser.add_argument('--model', type=str, default='alexnet', choices=['alexnet', 'resnet18', 'resnet50', 'resnet101'])
+    parser.add_argument('--model', type=str, default='alexnet', 
+                        choices=['alexnet', 'resnet18', 'resnet50', 'resnet101'])
     parser.add_argument('--nce_k', type=int, default=4096)
     parser.add_argument('--nce_t', type=float, default=0.07)
     parser.add_argument('--nce_m', type=float, default=0.5)
-    parser.add_argument('--feat_dim', type=int, default=128, help='dim of feat for inner product')
-    parser.add_argument('--layer', type=int, default=5, help='which layer to evaluate')
+    parser.add_argument('--feat_dim', type=int, default=128, 
+                        help='dim of feat for inner product')
+    parser.add_argument('--layer', type=int, default=5, 
+                        help='which layer to evaluate')
 
     # specify folder
-    parser.add_argument('--data_folder', type=str, default=None, help='path to data')
-    parser.add_argument('--model_path', type=str, default=None, help='path to save model')
-    parser.add_argument('--dataset_name', type=str, default="s2", help='name of dataset', choices=['s2', 'l8'])
+    parser.add_argument('--data_folder', type=str, default=None, 
+                        help='path to data')
+    parser.add_argument('--model_path', type=str, default=None, 
+                        help='path to save(d) model (in case of finetuning)')
 
     # specify list of images to use
-    parser.add_argument('--image_list', type=str, default=None, help='list of images to use')
-    parser.add_argument('--train_image_list', type=str, default=None, help='list of images for training of the finetuned model')
-    parser.add_argument('--val_image_list', type=str, default=None, help='list of images for validation of the finetuned model')
-    parser.add_argument('--channels_l', nargs="+", type=int, help='list of multispectral channels for view l')
-    parser.add_argument('--channels_ab', nargs="+", type=int, help='list of multispectral channels for view ab')
-
-    # specify multilabel classification mapping
-    parser.add_argument('--multilabel_targets', type=str, default=None, help='path to pickeled dictionary of image:target mappings for multilabel datasets')
-
-    # specify path to save features
-    parser.add_argument('--features_path', type=str, default=None, help='path to features')
-
-    # specify wandb project name
-    parser.add_argument('--wandb_project', type=str, default=None, help='wandb project name')
-
-    # specify path to features for training and validation/test datasets for linear classifier
-    parser.add_argument('--train_data_path', type=str, default=None, help='path to train features')
-    parser.add_argument('--val_data_path', type=str, default=None, help='path to val features')
+    parser.add_argument('--image_list', type=str, default=None, 
+                        help='list of images to use for pre-train stage')
+    parser.add_argument('--train_image_list', type=str, default=None, 
+                        help='list of images for training of the finetuned model')
+    parser.add_argument('--val_image_list', type=str, default=None, 
+                        help='list of images for validation of the finetuned model')
+    parser.add_argument('--dataset_name', type=str, default="s2", 
+                        help='name of dataset', choices=['s2', 'l8'])
+    parser.add_argument('--channels_l', nargs="+", type=int, 
+                        help='list of multispectral channels for view l')
+    parser.add_argument('--channels_ab', nargs="+", type=int, 
+                        help='list of multispectral channels for view ab')
 
     # data crop threshold
-    parser.add_argument('--crop_low', type=float, default=0.08, help='low area in crop')
-
-    parser.add_argument('--resize_image_aug', dest='resize_image_aug', action='store_true')
+    parser.add_argument('--crop_low', type=float, default=0.08, 
+                        help='low area in crop')
+    parser.add_argument('--resize_image_aug', dest='resize_image_aug', 
+                        action='store_true')
     parser.set_defaults(resize_image_aug=False)
 
     parser.add_argument('--evaluate', dest='evaluate', action='store_true')
     parser.set_defaults(evaluate=False)
-
-    parser.add_argument('--multispectral', dest='multispectral', action='store_true')
-    parser.set_defaults(multispectral=False)
-
-    parser.add_argument('--pca', dest='pca', action='store_true')
-    parser.set_defaults(pca=False)
-
-    parser.add_argument('--multispectral_dataset', type=str, default='BigEarthNet', help='multispectral dataset to use')
     
-    parser.add_argument('--save_path', type=str, default=None, help='path to save finetuned model')
+    parser.add_argument('--save_path', type=str, default=None, 
+                        help='path to save finetuned model')
 
     # parallel setting
     parser.add_argument('--world-size', default=-1, type=int,
