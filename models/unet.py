@@ -228,5 +228,5 @@ if __name__ == "__main__":
     resnet18 = models.resnet18(pretrained=True)
 
     from torchsummary import summary
-    model = Unet(resnet18, 6)
-    summary(model, (6, 256, 256))
+    model = Unet(resnet18, 3)
+    summary(model, (3, 256, 256))
