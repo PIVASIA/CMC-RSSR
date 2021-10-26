@@ -13,6 +13,7 @@ from NCE.NCEAverage import NCEAverage
 from NCE.NCECriterion import NCECriterion
 from util import parse_option
 from dataset import MultispectralImageDataset
+from transform import StandardScaler, random_transform_generator
 from constants import DATASET_MEAN, DATASET_STD
 
 warnings.filterwarnings("ignore")
@@ -34,6 +35,9 @@ class CMCModel(pl.LightningModule):
         self.nce_k = args.nce_k
         self.nce_t = args.nce_t
         self.nce_m = args.nce_m
+        self.learning_rate = args.learning_rate
+        self.momentum = args.momentum
+        self.weight_decay = args.weight_decay
 
         self._build_model()
         self._set_criterion()
@@ -42,8 +46,12 @@ class CMCModel(pl.LightningModule):
         # set the model
         if self.model.startswith('resnet'):
             model = getattr(resnet, self.model, lambda: None)
-            self.l_to_ab = model(in_channel=len(self.channels_l))
-            self.ab_to_l = model(in_channel=len(self.channels_ab))
+            self.l_to_ab = model(in_channel=len(self.channels_l),
+                                 low_dim=self.feat_dim,
+                                 normalize_output=True)
+            self.ab_to_l = model(in_channel=len(self.channels_ab),
+                                 low_dim=self.feat_dim,
+                                 normalize_output=True)
         else:
             raise ValueError(
                 'model not supported yet {}'.format(self.model)
@@ -59,12 +67,12 @@ class CMCModel(pl.LightningModule):
         self.criterion_l = NCECriterion(self.n_data)
         self.criterion_ab = NCECriterion(self.n_data)
 
-    def _forward_l(self, x, layer=7):
-        feat = self.l_to_ab(x, layer)
+    def _forward_l(self, x):
+        feat = self.l_to_ab(x)
         return feat
 
-    def _forward_ab(self, x, layer=7):
-        feat = self.ab_to_l(x, layer)
+    def _forward_ab(self, x):
+        feat = self.ab_to_l(x)
         return feat
 
     def forward(self, x):
@@ -77,9 +85,9 @@ class CMCModel(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(),
-                                    lr=self.args.learning_rate,
-                                    momentum=self.args.momentum,
-                                    weight_decay=self.args.weight_decay)
+                                    lr=self.learning_rate,
+                                    momentum=self.momentum,
+                                    weight_decay=self.weight_decay)
 
         return optimizer
 
@@ -150,7 +158,7 @@ class CMCDataModule(pl.LightningDataModule):
 
             self.train_dataset = \
                 MultispectralImageDataset(self.args.image_list,
-                                          self.args.data_folder,
+                                          self.args.image_folder,
                                           None,
                                           augment_generator,
                                           None, # use default augment param

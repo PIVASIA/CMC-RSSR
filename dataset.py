@@ -7,7 +7,8 @@ from torchvision import transforms
 from PIL import Image
 
 from multispectral import load_multispectral
-from transform import TransformParameters, apply_transform, adjust_transform_for_image
+from transform import (TransformParameters, 
+                       apply_transform, adjust_transform_for_image)
 
 
 class MultispectralImageDataset(datautils.Dataset):
@@ -59,9 +60,9 @@ class MultispectralImageDataset(datautils.Dataset):
         # spatial transform for data augmentation
         if self.augment_generator:
             transform = adjust_transform_for_image(next(self.augment_generator), 
-                                                   image, 
+                                                   img, 
                                                    self.augment_params.relative_translation)
-            image = apply_transform(transform, image, self.augment_params)
+            img = apply_transform(transform, img, self.augment_params)
             if label:
                 label = apply_transform(transform, label, self.augment_params)
 
@@ -69,10 +70,33 @@ class MultispectralImageDataset(datautils.Dataset):
         img = self.torch_transform(img)
         if label:
             label = torch.from_numpy(label).float()
+        else:
+            label = 0
 
         return img, label, idx
 
 
 if __name__ == '__main__':
     import sys
-    dataset = MultispectralImageDataset(sys.argv[1], sys.argv[2])
+    from transform import random_transform_generator
+    augment_generator = random_transform_generator(
+                                        min_rotation=-0.1,
+                                        max_rotation=0.1,
+                                        min_translation=(-0.1, -0.1),
+                                        max_translation=(0.1, 0.1),
+                                        min_shear=-0.1,
+                                        max_shear=0.1,
+                                        min_scaling=(0.9, 0.9),
+                                        max_scaling=(1.1, 1.1),
+                                        flip_x_chance=0.5,
+                                        flip_y_chance=0.5)
+    dataset = MultispectralImageDataset(sys.argv[1], sys.argv[2], augment_generator=augment_generator)
+
+    img, label, idx = dataset.__getitem__(0)
+    img = img.cpu().detach().numpy()
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    img = np.transpose(img, (1, 2, 0))
+    plt.imshow(img[..., :3])
+    plt.show()
