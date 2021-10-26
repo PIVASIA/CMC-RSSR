@@ -269,14 +269,14 @@ def random_transform_generator(prng=None, **kwargs):
     while True:
         yield random_transform(prng=prng, **kwargs)
 
-def adjust_transform_for_image(transform, image, relative_translation):
+def adjust_transform_for_image(transform, image_shape, relative_translation):
     """ Adjust a transformation for a specific image.
     The translation of the matrix will be scaled with the size of the image.
     The linear part of the transformation will adjusted so that the origin of the transformation will be at the center of the image.
     Args:
-        image:        an image
+        image_shape:        an image shape
     """    
-    height, width, channels = image.shape
+    height, width, channels = image_shape
 
     result = transform
 

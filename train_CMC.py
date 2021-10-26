@@ -140,28 +140,12 @@ class CMCDataModule(pl.LightningDataModule):
         # called on every GPU
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
-            if self.args.image_aug:
-                augment_generator = random_transform_generator(
-                        min_rotation=-0.1,
-                        max_rotation=0.1,
-                        min_translation=(-0.1, -0.1),
-                        max_translation=(0.1, 0.1),
-                        min_shear=-0.1,
-                        max_shear=0.1,
-                        min_scaling=(0.9, 0.9),
-                        max_scaling=(1.1, 1.1),
-                        flip_x_chance=0.5,
-                        flip_y_chance=0.5,
-                    )
-            else:
-                augment_generator = None
-
             self.train_dataset = \
                 MultispectralImageDataset(self.args.image_list,
                                           self.args.image_folder,
-                                          None,
-                                          augment_generator,
-                                          None, # use default augment param
+                                          label_folder_path=None,
+                                          augment=self.args.augment,
+                                          augment_params=None, # use default augment param
                                           torch_transform=self.torch_transform)
             self.n_data = len(self.train_dataset)
 

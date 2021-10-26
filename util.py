@@ -116,9 +116,9 @@ def parse_option(CMC_training=False):
                         help='list of multispectral channels for view ab')
 
     # data augmentation
-    parser.add_argument('--image_aug', dest='image_aug', 
+    parser.add_argument('--augment', dest='augment', 
                         action='store_true')
-    parser.set_defaults(image_aug=False)
+    parser.set_defaults(augment=False)
 
     parser.add_argument('--evaluate', dest='evaluate', action='store_true')
     parser.set_defaults(evaluate=False)
@@ -153,8 +153,8 @@ def parse_option(CMC_training=False):
         opt.lr_decay_epochs.append(int(it))
 
     if CMC_training:
-        opt.model_name = 'memory_nce_{}_{}_lr_{}_decay_{}_bsz_{}'.format(opt.nce_k, opt.model, opt.learning_rate,
-                                                                        opt.weight_decay, opt.batch_size)
+        opt.model_name = 'memory_nce_{}_{}_lr_{}_decay_{}_bsz_{}_aug_{}'.format(opt.nce_k, opt.model, opt.learning_rate,
+                                                                        opt.weight_decay, opt.batch_size, opt.augment)
 
         opt.model_folder = os.path.join(opt.model_path, opt.model_name)
         if not os.path.isdir(opt.model_folder):

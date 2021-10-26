@@ -113,12 +113,14 @@ class UnetDataModule(pl.LightningDataModule):
 
 def test_model(args):
     # load pre-trained CMC model as encoders
-    # encoder = CMCModel.load_from_checkpoint(
-    #                     checkpoint_path=args.model_path)
+    encoder = CMCModel.load_from_checkpoint(
+                        checkpoint_path=args.model_path)
+    backbone_l = encoder.l_to_ab
+    backbone_ab = encoder.ab_to_l
 
-    import torchvision.models as models
-    backbone_l = models.resnet18(pretrained=False)
-    backbone_ab = models.resnet18(pretrained=False)
+    # import torchvision.models as models
+    # backbone_l = models.resnet18(pretrained=False)
+    # backbone_ab = models.resnet18(pretrained=False)
 
     model = DoubleUnetModel(backbone_l,
                             backbone_ab,
@@ -129,11 +131,11 @@ def test_model(args):
                             momentum=args.momentum,
                             weight_decay=args.weight_decay)
     from torchsummary import summary
-    summary(model, (len(args.channels_l) + len(args.channels_ab), 256, 256), device="cpu")
+    summary(model, (11, 256, 256), device="cpu")
 
 
 if __name__ == "__main__":
     # parse the args
-    args = parse_option(True)
+    args = parse_option(False)
 
     test_model(args)

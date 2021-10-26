@@ -1,13 +1,12 @@
 import os
 
-import torch
 import torch.utils.data as datautils
 from torchvision import transforms
 
 from PIL import Image
 
 from multispectral import load_multispectral
-from transform import (TransformParameters, 
+from transform import (TransformParameters, random_transform,
                        apply_transform, adjust_transform_for_image)
 
 
@@ -16,7 +15,7 @@ class MultispectralImageDataset(datautils.Dataset):
                  images_to_use,
                  img_folder_path,
                  label_folder_path=None,
-                 augment_generator=None,
+                 augment=False,
                  augment_params=None,
                  torch_transform=None):
         super(MultispectralImageDataset, self).__init__()
@@ -30,7 +29,7 @@ class MultispectralImageDataset(datautils.Dataset):
         self.label_folder_path = label_folder_path
 
         # Spatial transform
-        self.augment_generator = augment_generator
+        self.augment = augment
         self.augment_params = augment_params or TransformParameters()
 
         # Tensor transform
@@ -57,10 +56,10 @@ class MultispectralImageDataset(datautils.Dataset):
             label = Image.open(label_path).convert('L')
             label = np.array(label)
         
-        # spatial transform for data augmentation
-        if self.augment_generator:
-            transform = adjust_transform_for_image(next(self.augment_generator), 
-                                                   img, 
+        # data augmentation
+        if self.augment:
+            transform = adjust_transform_for_image(random_transform(), 
+                                                   img.shape, 
                                                    self.augment_params.relative_translation)
             img = apply_transform(transform, img, self.augment_params)
             if label:
@@ -68,6 +67,7 @@ class MultispectralImageDataset(datautils.Dataset):
 
         # transform to Tensor
         img = self.torch_transform(img)
+
         if label:
             label = torch.from_numpy(label).float()
         else:
@@ -78,25 +78,18 @@ class MultispectralImageDataset(datautils.Dataset):
 
 if __name__ == '__main__':
     import sys
-    from transform import random_transform_generator
-    augment_generator = random_transform_generator(
-                                        min_rotation=-0.1,
-                                        max_rotation=0.1,
-                                        min_translation=(-0.1, -0.1),
-                                        max_translation=(0.1, 0.1),
-                                        min_shear=-0.1,
-                                        max_shear=0.1,
-                                        min_scaling=(0.9, 0.9),
-                                        max_scaling=(1.1, 1.1),
-                                        flip_x_chance=0.5,
-                                        flip_y_chance=0.5)
-    dataset = MultispectralImageDataset(sys.argv[1], sys.argv[2], augment_generator=augment_generator)
+    dataset = MultispectralImageDataset(sys.argv[1], sys.argv[2], augment_image=True)
 
-    img, label, idx = dataset.__getitem__(0)
-    img = img.cpu().detach().numpy()
-
-    import matplotlib.pyplot as plt
-    import numpy as np
-    img = np.transpose(img, (1, 2, 0))
-    plt.imshow(img[..., :3])
-    plt.show()
+    import torch
+    data_loader = torch.utils.data.DataLoader(
+                                        dataset,
+                                        batch_size=32,
+                                        shuffle=True,
+                                        num_workers=8,
+                                        pin_memory=True,
+                                        sampler=None)
+    print(len(data_loader))
+    batch = next(iter(data_loader))
+    print(batch[0].shape)
+    print(batch[1])
+    print(batch[2])
