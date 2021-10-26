@@ -40,7 +40,7 @@ class MultispectralImageDataset(datautils.Dataset):
 
     def __getitem__(self, idx):
         # read image
-        img_path = os.path.join(self.img_folder_path, "%s.tif" % self.filenames[idx])
+        img_path = os.path.join(self.img_folder_path, self.filenames[idx])
 
         if not os.path.isfile(img_path):
             raise FileNotFoundError("Image's not existed: {0}".format(img_path))
@@ -49,7 +49,8 @@ class MultispectralImageDataset(datautils.Dataset):
         # read label
         label = None
         if self.label_folder_path:
-            label_path = os.path.join(self.label_folder_path, "%s.png" % self.filenames[idx])
+            basename = self.filenames[idx].split(".")[0]
+            label_path = os.path.join(self.label_folder_path, "%s.png" % basename)
             if not os.path.isfile(label_path):
                 raise FileNotFoundError("Label's not existed: {0}".format(label_path))
             label = Image.open(label_path).convert('L')
