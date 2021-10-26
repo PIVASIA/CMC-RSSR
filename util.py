@@ -94,8 +94,10 @@ def parse_option(CMC_training=False):
                         help='which layer to evaluate')
 
     # specify folder
-    parser.add_argument('--data_folder', type=str, default=None, 
-                        help='path to data')
+    parser.add_argument('--image_folder', type=str, default=None, 
+                        help='path to image data')
+    parser.add_argument('--label_folder', type=str, default=None, 
+                        help='path to label data')
     parser.add_argument('--model_path', type=str, default=None, 
                         help='path to save(d) model (in case of finetuning)')
 
@@ -113,12 +115,10 @@ def parse_option(CMC_training=False):
     parser.add_argument('--channels_ab', nargs="+", type=int, 
                         help='list of multispectral channels for view ab')
 
-    # data crop threshold
-    parser.add_argument('--crop_low', type=float, default=0.08, 
-                        help='low area in crop')
-    parser.add_argument('--resize_image_aug', dest='resize_image_aug', 
+    # data augmentation
+    parser.add_argument('--image_aug', dest='image_aug', 
                         action='store_true')
-    parser.set_defaults(resize_image_aug=False)
+    parser.set_defaults(image_aug=False)
 
     parser.add_argument('--evaluate', dest='evaluate', action='store_true')
     parser.set_defaults(evaluate=False)

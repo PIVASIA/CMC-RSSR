@@ -12,10 +12,6 @@ import models.resnet as resnet
 from NCE.NCEAverage import NCEAverage
 from NCE.NCECriterion import NCECriterion
 from util import parse_option
-from multispectral_transform import (
-                MultispectralRandomHorizontalFlip,
-                MultispectralRandomResizedCrop,
-                StandardScaler)
 from dataset import MultispectralImageDataset
 from constants import DATASET_MEAN, DATASET_STD
 
@@ -121,17 +117,12 @@ class CMCDataModule(pl.LightningDataModule):
         super().__init__()
         self.args = args
 
-        transformations = [
-            MultispectralRandomResizedCrop(224, scale=(args.crop_low, 1.)),
-            MultispectralRandomHorizontalFlip()
-        ]
-
-        transformations += [
+        torch_transformations = [
             StandardScaler(DATASET_MEAN[self.args.dataset_name],
                            DATASET_STD[self.args.dataset_name]),
             transforms.ToTensor()
         ]
-        self.transform = transforms.Compose(transformations)
+        self.torch_transform = transforms.Compose(torch_transformations)
 
     def prepare_data(self):
         # called only on 1 GPU
@@ -141,10 +132,29 @@ class CMCDataModule(pl.LightningDataModule):
         # called on every GPU
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
+            if self.args.image_aug:
+                augment_generator = random_transform_generator(
+                        min_rotation=-0.1,
+                        max_rotation=0.1,
+                        min_translation=(-0.1, -0.1),
+                        max_translation=(0.1, 0.1),
+                        min_shear=-0.1,
+                        max_shear=0.1,
+                        min_scaling=(0.9, 0.9),
+                        max_scaling=(1.1, 1.1),
+                        flip_x_chance=0.5,
+                        flip_y_chance=0.5,
+                    )
+            else:
+                augment_generator = None
+
             self.train_dataset = \
-                MultispectralImageDataset(self.args.data_folder,
-                                          self.args.image_list,
-                                          transform=self.transform)
+                MultispectralImageDataset(self.args.image_list,
+                                          self.args.data_folder,
+                                          None,
+                                          augment_generator,
+                                          None, # use default augment param
+                                          torch_transform=self.torch_transform)
             self.n_data = len(self.train_dataset)
 
     def train_dataloader(self):

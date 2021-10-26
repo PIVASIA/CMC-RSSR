@@ -94,7 +94,7 @@ class Unet(nn.Module):
         Args:
             backbone ([type]): [description]
             n_channels (int): number of input channels.
-            classess (int): number of output classes.
+            classes (int): number of output classes.
                     If -1, return feature instead. Defaults to -1.
             encoder_freeze (bool, optional): freeze encoder part.
             decoder_filters (tuple, optional): [description].
@@ -110,6 +110,7 @@ class Unet(nn.Module):
 
         self.backbone = backbone
         self.n_channels = n_channels
+        self.classes = classes
 
         # specifying skip feature and output names for backbone
         self.shortcut_features = [None, 'relu', 'layer1', 'layer2', 'layer3']
@@ -135,7 +136,7 @@ class Unet(nn.Module):
                               use_bn=decoder_use_batchnorm))
 
         self.final_conv = None
-        if classes > 0:
+        if self.classes > 0:
             self.final_conv = nn.Conv2d(decoder_filters[-1],
                                         self.classes,
                                         kernel_size=(1, 1))
@@ -192,7 +193,7 @@ class Unet(nn.Module):
             out_channels: number_of_channels at output of encoder
         """
         x = torch.zeros(1, self.n_channels, 224, 224)
-        channels = []
+        channels = [0]
 
         # forward run in encoder to count channels
         # (dirty solution but works for *any* Module)
@@ -225,8 +226,10 @@ class Unet(nn.Module):
 
 if __name__ == "__main__":
     import torchvision.models as models
-    resnet18 = models.resnet18(pretrained=True)
+    backbone = models.resnet18(pretrained=False)
 
     from torchsummary import summary
-    model = Unet(resnet18, 3)
-    summary(model, (3, 256, 256))
+    # summary(backbone, (3, 256, 256), device="cpu")
+    
+    model = Unet(backbone, 3, classes=-1)
+    summary(model, (3, 256, 256), device="cpu")
