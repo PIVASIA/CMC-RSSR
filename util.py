@@ -62,7 +62,8 @@ def parse_option(CMC_training=False):
     parser.add_argument('--print_freq', type=int, default=10, help='print frequency')
     parser.add_argument('--tb_freq', type=int, default=500, help='tb frequency')
     parser.add_argument('--save_freq', type=int, default=5, help='save frequency')
-    parser.add_argument('--batch_size', type=int, default=256, help='batch_size')
+    parser.add_argument('--train_batch_size', type=int, default=256, help='batch_size')
+    parser.add_argument('--test_batch_size', type=int, default=16, help='batch_size')
     parser.add_argument('--num_workers', type=int, default=8, help='num of workers to use')
     parser.add_argument('--epochs', type=int, default=400, help='number of training epochs')
 
@@ -106,7 +107,7 @@ def parse_option(CMC_training=False):
                         help='list of images to use for pre-train stage')
     parser.add_argument('--train_image_list', type=str, default=None, 
                         help='list of images for training of the finetuned model')
-    parser.add_argument('--val_image_list', type=str, default=None, 
+    parser.add_argument('--test_image_list', type=str, default=None, 
                         help='list of images for validation of the finetuned model')
     parser.add_argument('--dataset_name', type=str, default="s2", 
                         help='name of dataset', choices=['s2', 'l8'])
@@ -123,6 +124,8 @@ def parse_option(CMC_training=False):
     parser.add_argument('--evaluate', dest='evaluate', action='store_true')
     parser.set_defaults(evaluate=False)
     
+    parser.add_argument('--label_mapping', type=str, default=None, 
+                        help='path to label_mapping configuration')
     parser.add_argument('--save_path', type=str, default=None, 
                         help='path to save finetuned model')
 

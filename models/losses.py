@@ -3,7 +3,6 @@
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 
 
 def dice_score(input, target, classes, ignore_index=-100):

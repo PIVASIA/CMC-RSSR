@@ -1,14 +1,19 @@
 from __future__ import print_function
 
+import os
+
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
+from dataset import MultispectralImageDataModule
 from util import parse_option
 from train_CMC import CMCModel
 from models.unet import Unet
+from models.losses import DiceLoss
 
+from constants import LABEL_MAPPING
 
 class DoubleUnetModel(pl.LightningModule):
     def __init__(self,
@@ -31,11 +36,17 @@ class DoubleUnetModel(pl.LightningModule):
         self.channels_l = channels_l
         self.channels_ab = channels_ab
 
+        # setup model
         self.encoder_l = Unet(backbone_l, len(self.channels_l))
         self.encoder_ab = Unet(backbone_ab, len(self.channels_ab))
         self.final_conv = nn.Conv2d(32,
                                     self.n_classes,
                                     kernel_size=(1, 1))
+        
+        # setup criterion
+        # ignore class 0 which equipvalent to no label
+        self.criterion = DiceLoss(self.n_classes, ignore_index=0)
+
 
     def forward(self, x):
         l, ab = x[:, self.channels_l, ...], x[:, self.channels_ab, ...]
@@ -55,13 +66,32 @@ class DoubleUnetModel(pl.LightningModule):
         return optimizer
 
     def training_step(self, train_batch, batch_idx):
-        pass
+        inputs, label, index = train_batch
+
+        # forward
+        out = self(inputs)
+
+        # calculating loss
+        loss = self.criterion(out, label)
+        self.log('train_loss', loss, on_step=False, on_epoch=True)
+
+        return {"loss": loss}
 
     def validation_step(self, val_batch, batch_idx):
-        pass
+        inputs, label, index = val_batch
+
+        # forward
+        out = self(inputs)
+
+        # calculating loss
+        loss = self.criterion(out, label)
+        self.log('val_loss', loss, on_step=False, on_epoch=True)
 
 
-def _test_model(args):
+def _test_model():
+     # parse the args
+    args = parse_option(False)
+
     # load pre-trained CMC model as encoders
     encoder = CMCModel.load_from_checkpoint(
                         checkpoint_path=args.model_path)
@@ -84,8 +114,56 @@ def _test_model(args):
     summary(model, (11, 256, 256), device="cpu")
 
 
-if __name__ == "__main__":
+def main():
     # parse the args
     args = parse_option(False)
 
-    _test_model(args)
+    # setup datamodule
+    dm = MultispectralImageDataModule(args.dataset_name,
+                                      args.image_folder,
+                                      args.train_image_list,
+                                      args.test_image_list,
+                                      args.label_folder,
+                                      train_batch_size=args.train_batch_size,
+                                      test_batch_size=args.test_batch_size,
+                                      augment=args.augment)
+    dm.setup(stage="fit")
+
+    # load pre-trained CMC model as encoders
+    encoder = CMCModel.load_from_checkpoint(
+                        checkpoint_path=args.model_path)
+    backbone_l = encoder.l_to_ab
+    backbone_ab = encoder.ab_to_l
+
+    # set the model
+    if os.path.isfile(args.resume):
+        model = DoubleUnetModel.load_from_checkpoint(args.resume)
+    else:
+        model = DoubleUnetModel(backbone_l,
+                                backbone_ab,
+                                args.channels_l,
+                                args.channels_ab,
+                                n_classes=args.n_classes, 
+                                learning_rate=args.learning_rate,
+                                momentum=args.momentum,
+                                weight_decay=args.weight_decay)
+
+    # define callbacks
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_loss",
+        dirpath=args.save_path,
+        filename="{epoch:02d}-{train_loss:.2f}-{val_loss:.2f}",
+        save_top_k=3,
+        mode="min"
+    )
+
+    trainer = pl.Trainer(callbacks=[checkpoint_callback],
+                         gpus=args.gpu,
+                         max_epochs=args.epochs)
+    trainer.fit(model, dm)
+
+
+if __name__ == "__main__":
+    # _test_model()
+
+    main()

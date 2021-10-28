@@ -7,14 +7,11 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
+from dataset import MultispectralImageDataModule
 import models.resnet as resnet
 from NCE.NCEAverage import NCEAverage
 from NCE.NCECriterion import NCECriterion
 from util import parse_option
-
-from dataset import MultispectralImageDataset
-from transform import StandardScaler, random_transform_generator
-from constants import DATASET_MEAN, DATASET_STD
 
 warnings.filterwarnings("ignore")
 
@@ -125,7 +122,14 @@ def main():
     args = parse_option(True)
 
     # set the datamodule
-    dm = CMCDataModule(args)
+    dm = MultispectralImageDataModule(args.dataset_name,
+                                      args.image_folder,
+                                      args.train_image_list,
+                                      args.test_image_list,
+                                      args.label_folder,
+                                      train_batch_size=args.train_batch_size,
+                                      test_batch_size=args.test_batch_size,
+                                      augment=args.augment)
     dm.setup(stage="fit")
 
     # set the model

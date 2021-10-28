@@ -1,7 +1,9 @@
-from typing import Type, Any, Callable, Union, List, Optional
+from typing import Dict, List, Optional
 
 import os
+import numpy as np
 
+import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms
 from pytorch_lightning import LightningDataModule
@@ -9,8 +11,11 @@ from pytorch_lightning import LightningDataModule
 from PIL import Image
 
 from multispectral import load_multispectral
+from dataset import MultispectralImageDataset
 from transform import (TransformParameters, random_transform,
-                       apply_transform, adjust_transform_for_image)
+                       apply_transform, adjust_transform_for_image,
+                       StandardScaler)
+from constants import DATASET_MEAN, DATASET_STD
 
 
 class MultispectralImageDataset(Dataset):
@@ -18,6 +23,7 @@ class MultispectralImageDataset(Dataset):
                  images_to_use: List[str],
                  image_folder: str,
                  label_folder: Optional[str] = None,
+                 label_mapping: Optional[dict] = None,
                  augment: bool = False,
                  augment_params: TransformParameters = None,
                  torch_transform=None):
@@ -27,6 +33,7 @@ class MultispectralImageDataset(Dataset):
         
         self.image_folder = image_folder
         self.label_folder = label_folder
+        self.label_mapping = label_mapping
 
         # Spatial transform
         self.augment = augment
@@ -79,16 +86,18 @@ class MultispectralImageDataset(Dataset):
 class MultispectralImageDataModule(LightningDataModule):
     def __init__(self,
                  dataset_name: str,
+                 image_folder: str,
                  train_image_list: str,
                  test_image_list: Optional[str] = None,
-                 image_folder: str,
                  label_folder: Optional[str] = None,
+                 label_mapping: Optional[dict] = None,
                  train_batch_size: int = 32,
                  test_batch_size: int = 16,
                  augment: bool = False
                  ):
         super().__init__()
 
+        self.label_mapping = label_mapping
         self.train_image_list = train_image_list
         self.test_image_list = test_image_list
         self.image_folder = image_folder
@@ -192,19 +201,12 @@ class MultispectralImageDataModule(LightningDataModule):
 
 
 if __name__ == '__main__':
-    import sys
-    dataset = MultispectralImageDataset(sys.argv[1], sys.argv[2], augment_image=True)
+    from util import parse_option
+    args = parse_option(True)
 
-    import torch
-    data_loader = torch.utils.data.DataLoader(
-                                        dataset,
-                                        batch_size=32,
-                                        shuffle=True,
-                                        num_workers=8,
-                                        pin_memory=True,
-                                        sampler=None)
-    print(len(data_loader))
-    batch = next(iter(data_loader))
-    print(batch[0].shape)
-    print(batch[1])
-    print(batch[2])
+    dm = MultispectralImageDataModule(args.dataset_name,
+                                      args.image_folder,
+                                      args.train_image_list,
+                                      args.test_image_list,
+                                      args.label_folder)
+    dm.setup(stage="fit")
