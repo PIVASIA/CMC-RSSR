@@ -6,12 +6,12 @@ import warnings
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-from torchvision import transforms
 
 import models.resnet as resnet
 from NCE.NCEAverage import NCEAverage
 from NCE.NCECriterion import NCECriterion
 from util import parse_option
+
 from dataset import MultispectralImageDataset
 from transform import StandardScaler, random_transform_generator
 from constants import DATASET_MEAN, DATASET_STD
@@ -118,53 +118,6 @@ class CMCModel(pl.LightningModule):
 
     def validation_step(self, val_batch, batch_idx):
         pass
-
-
-class CMCDataModule(pl.LightningDataModule):
-    def __init__(self, args):
-        super().__init__()
-        self.args = args
-
-        torch_transformations = [
-            StandardScaler(DATASET_MEAN[self.args.dataset_name],
-                           DATASET_STD[self.args.dataset_name]),
-            transforms.ToTensor()
-        ]
-        self.torch_transform = transforms.Compose(torch_transformations)
-
-    def prepare_data(self):
-        # called only on 1 GPU
-        pass
-
-    def setup(self, stage=None):
-        # called on every GPU
-        # Assign train/val datasets for use in dataloaders
-        if stage == "fit" or stage is None:
-            self.train_dataset = \
-                MultispectralImageDataset(self.args.image_list,
-                                          self.args.image_folder,
-                                          label_folder_path=None,
-                                          augment=self.args.augment,
-                                          augment_params=None, # use default augment param
-                                          torch_transform=self.torch_transform)
-            self.n_data = len(self.train_dataset)
-
-    def train_dataloader(self):
-        train_sampler = None
-        return torch.utils.data.DataLoader(
-                        self.train_dataset,
-                        batch_size=self.args.batch_size,
-                        shuffle=(train_sampler is None),
-                        num_workers=self.args.num_workers,
-                        pin_memory=True,
-                        sampler=train_sampler
-        )
-
-    def val_dataloader(self):
-        return None
-
-    def test_dataloader(self):
-        return None
 
 
 def main():

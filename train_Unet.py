@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-from torchvision import transforms
 
 from util import parse_option
 from train_CMC import CMCModel
@@ -62,56 +61,7 @@ class DoubleUnetModel(pl.LightningModule):
         pass
 
 
-class UnetDataModule(pl.LightningDataModule):
-    def __init__(self, args):
-        super().__init__()
-        self.args = args
-
-        transformations = [
-            MultispectralRandomResizedCrop(224, scale=(args.crop_low, 1.)),
-            MultispectralRandomHorizontalFlip()
-        ]
-
-        transformations += [
-            StandardScaler(DATASET_MEAN[self.args.dataset_name],
-                           DATASET_STD[self.args.dataset_name]),
-            transforms.ToTensor()
-        ]
-        self.transform = transforms.Compose(transformations)
-
-    def prepare_data(self):
-        # called only on 1 GPU
-        pass
-
-    def setup(self, stage=None):
-        # called on every GPU
-        # Assign train/val datasets for use in dataloaders
-        if stage == "fit" or stage is None:
-            self.train_dataset = \
-                MultispectralImageDataset(self.args.data_folder,
-                                          self.args.image_list,
-                                          transform=self.transform)
-            self.n_data = len(self.train_dataset)
-
-    def train_dataloader(self):
-        train_sampler = None
-        return torch.utils.data.DataLoader(
-                        self.train_dataset,
-                        batch_size=self.args.batch_size,
-                        shuffle=(train_sampler is None),
-                        num_workers=self.args.num_workers,
-                        pin_memory=True,
-                        sampler=train_sampler
-        )
-
-    def val_dataloader(self):
-        return None
-
-    def test_dataloader(self):
-        return None
-
-
-def test_model(args):
+def _test_model(args):
     # load pre-trained CMC model as encoders
     encoder = CMCModel.load_from_checkpoint(
                         checkpoint_path=args.model_path)
@@ -138,4 +88,4 @@ if __name__ == "__main__":
     # parse the args
     args = parse_option(False)
 
-    test_model(args)
+    _test_model(args)
