@@ -6,10 +6,12 @@ from glob import glob
 from osgeo import gdal
 from tqdm import tqdm
 
+
 def parse_args():
-    parser = argparse.ArgumentParser(description="Making Remote Sensing Tiles for self-supervised learning")
+    parser = argparse.ArgumentParser(description="Making Remote Sensing Tiles for learning")
     # basic
     parser.add_argument('-i', '--input-path', type=str, required=True, help='input dir with tiles image')
+    parser.add_argument('-o', '--output-path', type=str, required=True, help='output dir for filenames.txt')
     parser.add_argument('--valid-width', type=int, default=256)
     parser.add_argument('--valid-height', type=int, default=256)
     parser.add_argument('-t', '--threshold', type=float, default=0.3)
@@ -40,7 +42,7 @@ def main(args):
 
         valids.append(basename)
     
-    with open(os.path.join(args.input_path, "filenames.txt"), 'w') as fou:
+    with open(os.path.join(args.output_path, "filenames.txt"), 'w') as fou:
         for filename in valids:
             fou.write(filename + "\n")
 

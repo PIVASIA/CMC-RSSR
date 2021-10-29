@@ -13,7 +13,6 @@ from train_CMC import CMCModel
 from models.unet import Unet
 from models.losses import DiceLoss
 
-from constants import LABEL_MAPPING
 
 class DoubleUnetModel(pl.LightningModule):
     def __init__(self,
