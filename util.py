@@ -124,8 +124,8 @@ def parse_option(CMC_training=False):
     parser.add_argument('--evaluate', dest='evaluate', action='store_true')
     parser.set_defaults(evaluate=False)
     
-    parser.add_argument('--label_mapping', type=str, default=None, 
-                        help='path to label_mapping configuration')
+    parser.add_argument('--n_classes', type=int, default=12, 
+                        help='number of classes for finetuning')
     parser.add_argument('--save_path', type=str, default=None, 
                         help='path to save finetuned model')
 
@@ -157,7 +157,7 @@ def parse_option(CMC_training=False):
 
     if CMC_training:
         opt.model_name = 'memory_nce_{}_{}_lr_{}_decay_{}_bsz_{}_aug_{}'.format(opt.nce_k, opt.model, opt.learning_rate,
-                                                                        opt.weight_decay, opt.batch_size, opt.augment)
+                                                                        opt.weight_decay, opt.train_batch_size, opt.augment)
 
         opt.model_folder = os.path.join(opt.model_path, opt.model_name)
         if not os.path.isdir(opt.model_folder):

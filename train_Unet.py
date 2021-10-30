@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 from dataset import MultispectralImageDataModule
 from util import parse_option
@@ -44,10 +45,12 @@ class DoubleUnetModel(pl.LightningModule):
         
         # setup criterion
         # ignore class 0 which equipvalent to no label
-        self.criterion = DiceLoss(self.n_classes, ignore_index=0)
-
+        # self.criterion = DiceLoss(self.n_classes, ignore_index=0)
+        self.criterion = nn.CrossEntropyLoss(ignore_index=0)
 
     def forward(self, x):
+        x = x.float()
+        
         l, ab = x[:, self.channels_l, ...], x[:, self.channels_ab, ...]
         feature_l = self.encoder_l(l)
         feature_ab = self.encoder_ab(ab)
@@ -105,19 +108,14 @@ def _test_model():
                             backbone_ab,
                             args.channels_l,
                             args.channels_ab,
-                            n_classes=10,
+                            n_classes=args.n_classes,
                             learning_rate=args.learning_rate,
                             momentum=args.momentum,
                             weight_decay=args.weight_decay)
-    from torchsummary import summary
-    summary(model, (11, 256, 256), device="cpu")
+    
+    criterion = nn.CrossEntropyLoss(ignore_index=0)
+    # criterion = DiceLoss(args.n_classes, ignore_index=0)
 
-
-def main():
-    # parse the args
-    args = parse_option(False)
-
-    # setup datamodule
     dm = MultispectralImageDataModule(args.dataset_name,
                                       args.image_folder,
                                       args.train_image_list,
@@ -126,8 +124,33 @@ def main():
                                       train_batch_size=args.train_batch_size,
                                       test_batch_size=args.test_batch_size,
                                       augment=args.augment)
-    dm.setup(stage="fit")
+    dm.setup(stage="fit", train_val_split=True)
 
+    inputs, targets, _ = next(iter(dm.train_dataloader()))
+    out = model(inputs)
+    loss = criterion(out, targets)
+
+    # from torchsummary import summary
+    # summary(model, (11, 256, 256), device="cpu")
+
+
+def main():
+    # parse the args
+    args = parse_option(False)
+
+    # setup datamodule
+    print("--setup datamodule ...")
+    dm = MultispectralImageDataModule(args.dataset_name,
+                                      args.image_folder,
+                                      args.train_image_list,
+                                      args.test_image_list,
+                                      args.label_folder,
+                                      train_batch_size=args.train_batch_size,
+                                      test_batch_size=args.test_batch_size,
+                                      augment=args.augment)
+    dm.setup(stage="fit", train_val_split=True)
+
+    print("--setup model ...")
     # load pre-trained CMC model as encoders
     encoder = CMCModel.load_from_checkpoint(
                         checkpoint_path=args.model_path)
@@ -156,13 +179,22 @@ def main():
         mode="min"
     )
 
-    trainer = pl.Trainer(callbacks=[checkpoint_callback],
+    early_stop_callback = EarlyStopping(monitor="val_loss", 
+                                        min_delta=0.00, 
+                                        patience=5, 
+                                        verbose=False, 
+                                        mode="min")
+
+    print("--training ...")
+    trainer = pl.Trainer(callbacks=[checkpoint_callback, early_stop_callback],
                          gpus=args.gpu,
                          max_epochs=args.epochs)
+    lr_finder = trainer.tuner.lr_find(model, dm)
+
+    model.hparams.learning_rate = lr_finder.suggestion()
     trainer.fit(model, dm)
 
 
 if __name__ == "__main__":
     # _test_model()
-
     main()

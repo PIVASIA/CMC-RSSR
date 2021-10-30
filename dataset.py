@@ -11,7 +11,6 @@ from pytorch_lightning import LightningDataModule
 from PIL import Image
 
 from multispectral import load_multispectral
-from dataset import MultispectralImageDataset
 from transform import (TransformParameters, random_transform,
                        apply_transform, adjust_transform_for_image,
                        StandardScaler)
@@ -56,7 +55,7 @@ class MultispectralImageDataset(Dataset):
         # read label
         label = None
         if self.label_folder:
-            basename = self.filenames[idx].split(".")[0]
+            basename = self.images_to_use[idx].split(".")[0]
             label_path = os.path.join(self.label_folder, "%s.png" % basename)
             if not os.path.isfile(label_path):
                 raise FileNotFoundError("Label's not existed: {0}".format(label_path))
@@ -69,14 +68,14 @@ class MultispectralImageDataset(Dataset):
                                                    img.shape, 
                                                    self.augment_params.relative_translation)
             img = apply_transform(transform, img, self.augment_params)
-            if label:
+            if label is not None:
                 label = apply_transform(transform, label, self.augment_params)
 
         # transform to Tensor
         img = self.torch_transform(img)
 
-        if label:
-            label = torch.from_numpy(label).float()
+        if label is not None:
+            label = torch.from_numpy(label).long()
         else:
             label = 0
 
@@ -93,7 +92,8 @@ class MultispectralImageDataModule(LightningDataModule):
                  label_mapping: Optional[dict] = None,
                  train_batch_size: int = 32,
                  test_batch_size: int = 16,
-                 augment: bool = False
+                 augment: bool = False,
+                 num_workers: int = 1
                  ):
         super().__init__()
 
@@ -105,6 +105,7 @@ class MultispectralImageDataModule(LightningDataModule):
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size # use as test/val batch size
         self.augment = augment
+        self.num_workers = num_workers
 
         torch_transformations = [
             StandardScaler(DATASET_MEAN[dataset_name],
@@ -121,7 +122,10 @@ class MultispectralImageDataModule(LightningDataModule):
               stage: str = None, 
               train_val_split: bool = False):
         # called on every GPU
-        
+        self.train_dataset = None
+        self.test_dataset = None
+        self.val_dataset = None
+
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
             with open(self.train_image_list, 'r', encoding="utf-8") as f:
@@ -171,30 +175,30 @@ class MultispectralImageDataModule(LightningDataModule):
             self.train_dataset,
             batch_size=self.train_batch_size,
             shuffle=(train_sampler is None),
-            num_workers=self.args.num_workers,
+            num_workers=self.num_workers,
             pin_memory=True,
             sampler=train_sampler
         )
 
     def val_dataloader(self):
-        if self.val_dataset:
+        if self.val_dataset is not None:
             return DataLoader(
                 self.val_dataset,
                 batch_size=self.test_batch_size,
                 shuffle=False,
-                num_workers=1,
+                num_workers=self.num_workers,
                 pin_memory=True
             )
 
         return None
 
     def test_dataloader(self):
-        if self.test_dataset:
+        if self.test_dataset is not None:
             return DataLoader(
                 self.test_dataset,
                 batch_size=self.test_batch_size,
                 shuffle=False,
-                num_workers=1,
+                num_workers=self.num_workers,
                 pin_memory=True
             )
         return None
@@ -202,11 +206,15 @@ class MultispectralImageDataModule(LightningDataModule):
 
 if __name__ == '__main__':
     from util import parse_option
-    args = parse_option(True)
+    args = parse_option(False)
 
     dm = MultispectralImageDataModule(args.dataset_name,
                                       args.image_folder,
                                       args.train_image_list,
                                       args.test_image_list,
-                                      args.label_folder)
-    dm.setup(stage="fit")
+                                      args.label_folder,
+                                      train_batch_size=args.train_batch_size,
+                                      test_batch_size=args.test_batch_size,
+                                      augment=args.augment)
+    dm.setup(stage="fit", train_val_split=True)
+    next(iter(dm.train_dataloader()))

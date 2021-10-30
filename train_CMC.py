@@ -129,7 +129,8 @@ def main():
                                       args.label_folder,
                                       train_batch_size=args.train_batch_size,
                                       test_batch_size=args.test_batch_size,
-                                      augment=args.augment)
+                                      augment=args.augment,
+                                      num_workers=args.num_workers)
     dm.setup(stage="fit")
 
     # set the model

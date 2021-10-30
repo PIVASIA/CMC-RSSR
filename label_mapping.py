@@ -31,7 +31,8 @@ def main(args):
         for k, v in LABEL_MAPPING.items():
             label[label == k] = v
         
-        label.save(os.path.join(args.output_dir, basename))
+        im = Image.fromarray(label)
+        im.save(os.path.join(args.output_dir, basename))
 
 
 if __name__ == "__main__":
