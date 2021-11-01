@@ -83,7 +83,7 @@ class Unet(nn.Module):
     def __init__(self,
                  backbone,
                  n_channels,
-                 classes=-1,
+                 n_classes=-1,
                  encoder_freeze=True,
                  decoder_filters=(256, 128, 64, 32, 16),
                  parametric_upsampling=True,
@@ -94,7 +94,7 @@ class Unet(nn.Module):
         Args:
             backbone ([type]): [description]
             n_channels (int): number of input channels.
-            classes (int): number of output classes.
+            n_classes (int): number of output classes.
                     If -1, return feature instead. Defaults to -1.
             encoder_freeze (bool, optional): freeze encoder part.
             decoder_filters (tuple, optional): [description].
@@ -110,7 +110,7 @@ class Unet(nn.Module):
 
         self.backbone = backbone
         self.n_channels = n_channels
-        self.classes = classes
+        self.n_classes = n_classes
 
         # specifying skip feature and output names for backbone
         self.shortcut_features = [None, 'relu', 'layer1', 'layer2', 'layer3']
@@ -136,9 +136,9 @@ class Unet(nn.Module):
                               use_bn=decoder_use_batchnorm))
 
         self.final_conv = None
-        if self.classes > 0:
+        if self.n_classes > 0:
             self.final_conv = nn.Conv2d(decoder_filters[-1],
-                                        self.classes,
+                                        self.n_classes,
                                         kernel_size=(1, 1))
 
         if encoder_freeze:
@@ -231,5 +231,5 @@ if __name__ == "__main__":
     from torchsummary import summary
     # summary(backbone, (3, 256, 256), device="cpu")
     
-    model = Unet(backbone, 3, classes=-1)
+    model = Unet(backbone, 3, n_classes=-1)
     summary(model, (3, 256, 256), device="cpu")
