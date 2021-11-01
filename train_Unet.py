@@ -12,7 +12,7 @@ from dataset import MultispectralImageDataModule
 from util import parse_option
 from train_CMC import CMCModel
 from models.unet import Unet
-from models.losses import DiceLoss
+# from models.losses import DiceLoss
 
 
 class DoubleUnetModel(pl.LightningModule):
