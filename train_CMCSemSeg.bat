@@ -1,0 +1,12 @@
+python train_CMCSemSeg.py^
+ --image_folder ..\data\tiles\unsupervised\s2\images^
+ --train_image_list ..\data\tiles\unsupervised\s2\filenames.txt^
+ --model resnet18^
+ --model_path ..\results\cmc\s2^
+ --train_batch_size 64^
+ --test_batch_size 32^
+ --dataset_name s2^
+ --channels_l 1 7 8 9 10^
+ --channels_ab 2 3 4 5 6^
+ --augment^
+ --gpu 1
