@@ -108,9 +108,10 @@ class MultispectralImageDataModule(LightningDataModule):
         self.num_workers = num_workers
 
         torch_transformations = [
-            StandardScaler(DATASET_MEAN[dataset_name],
-                           DATASET_STD[dataset_name]),
-            transforms.ToTensor()
+            # StandardScaler(DATASET_MEAN[dataset_name],
+            #                DATASET_STD[dataset_name]),
+            transforms.ToTensor(),
+            transforms.Normalize(DATASET_MEAN[dataset_name], DATASET_STD[dataset_name])
         ]
         self.torch_transform = transforms.Compose(torch_transformations)
 
@@ -120,7 +121,7 @@ class MultispectralImageDataModule(LightningDataModule):
 
     def setup(self, 
               stage: str = None, 
-              train_val_split: bool = False):
+              validation_size: float = 0.1):
         # called on every GPU
         self.train_dataset = None
         self.test_dataset = None
@@ -133,8 +134,8 @@ class MultispectralImageDataModule(LightningDataModule):
             images_to_use = [name.strip() for name in names]
 
             # train/val split
-            if train_val_split:
-                train_set_size = int(len(images_to_use) * 0.8)
+            if validation_size > 0:
+                train_set_size = int(len(images_to_use) * validation_size)
                 valid_set_size = len(images_to_use) - train_set_size
                 train_image_list, val_image_list = random_split(images_to_use, [train_set_size, valid_set_size])
             else:
@@ -149,7 +150,7 @@ class MultispectralImageDataModule(LightningDataModule):
                                           torch_transform=self.torch_transform)
             self.n_data = len(self.train_dataset)
 
-            if train_val_split:
+            if validation_size > 0:
                 self.val_dataset = \
                     MultispectralImageDataset(val_image_list,
                                               image_folder=self.image_folder,

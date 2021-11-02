@@ -1,9 +1,11 @@
 python train_CMC.py^
  --image_folder ..\data\tiles\unsupervised\s2^
- --train_image_list ..\data\tiles\unsupervised\s2\filenames.txt^
+ --train_image_list ..\data\tiles\unsupervised\s2\train.txt^
+ --val_image_list ..\data\tiles\unsupervised\s2\val.txt^
  --model resnet18^
  --model_path ..\results\cmc\s2^
  --train_batch_size 32^
+ --test_batch_size 16^
  --dataset_name s2^
  --channels_l 1 7 8 9 10^
  --channels_ab 2 3 4 5 6^

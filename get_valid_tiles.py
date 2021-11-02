@@ -5,7 +5,7 @@ import os
 from glob import glob
 from osgeo import gdal
 from tqdm import tqdm
-
+from sklearn.model_selection import train_test_split
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Making Remote Sensing Tiles for learning")
@@ -42,10 +42,15 @@ def main(args):
 
         valids.append(basename)
     
-    with open(os.path.join(args.output_path, "filenames.txt"), 'w') as fou:
-        for filename in valids:
+    train, test = train_test_split(valids, test_size=0.1, random_state=42)
+
+    with open(os.path.join(args.output_path, "train.txt"), 'w') as fou:
+        for filename in train:
             fou.write(filename + "\n")
 
+    with open(os.path.join(args.output_path, "val.txt"), 'w') as fou:
+        for filename in test:
+            fou.write(filename + "\n")
 
 if __name__ == "__main__":
     args = parse_args()

@@ -231,5 +231,5 @@ if __name__ == "__main__":
     from torchsummary import summary
     # summary(backbone, (3, 256, 256), device="cpu")
     
-    model = Unet(backbone, 3, n_classes=-1)
+    model = Unet(backbone, 3, n_classes=5)
     summary(model, (3, 256, 256), device="cpu")
