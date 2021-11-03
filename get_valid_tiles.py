@@ -5,7 +5,7 @@ import os
 from glob import glob
 from osgeo import gdal
 from tqdm import tqdm
-from sklearn.model_selection import train_test_split
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Making Remote Sensing Tiles for learning")
@@ -35,21 +35,15 @@ def main(args):
            continue
         
         # validate no-data value
-        sample = raster.GetRasterBand(1).ReadAsArray()
-        nonzero = np.count_nonzero(sample)
-        if (nonzero / (args.valid_height * args.valid_width)) < args.threshold:
-            continue
+        # sample = raster.GetRasterBand(1).ReadAsArray()
+        # nonzero = np.count_nonzero(sample)
+        # if (nonzero / (args.valid_height * args.valid_width)) < args.threshold:
+        #     continue
 
         valids.append(basename)
     
-    train, test = train_test_split(valids, test_size=0.1, random_state=42)
-
-    with open(os.path.join(args.output_path, "train.txt"), 'w') as fou:
-        for filename in train:
-            fou.write(filename + "\n")
-
-    with open(os.path.join(args.output_path, "val.txt"), 'w') as fou:
-        for filename in test:
+    with open(os.path.join(args.output_path, "filenames.txt"), 'w') as fou:
+        for filename in valids:
             fou.write(filename + "\n")
 
 if __name__ == "__main__":

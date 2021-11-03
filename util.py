@@ -81,7 +81,8 @@ def parse_option(CMC_training=False):
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
     
-    # path to pre-trained
+    # specify path to save features
+    parser.add_argument('--features_path', type=str, default=None, help='path to features')
 
     # model definition
     parser.add_argument('--model', type=str, default='alexnet', 

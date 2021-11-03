@@ -2,17 +2,14 @@ from __future__ import print_function
 
 import os
 import warnings
+import numpy as np
 
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from piq import MultiScaleSSIMLoss
-
 from dataset import MultispectralImageDataModule
-import models.resnet as resnet
-from models.unet import Unet
 from util import parse_option
 from train_CMCSemSeg import CMCSemSegModel
 
@@ -26,11 +23,14 @@ class FeatureExtractorTask(pl.LightningModule):
         self.channels_l = channels_l
         self.channels_ab = channels_ab
 
+    def forward(self, inputs):
+        inputs_l, inputs_ab = inputs[:, self.channels_l, ...], inputs[:, self.channels_ab, ...]
+        _, feat_l, _, feat_ab = self.model(inputs_l, inputs_ab)
+        return feat_l, feat_ab
+
     def predict_step(self, batch, batch_idx: int, dataloader_idx: int = None):
         inputs, _, _ = batch
-        inputs_l, inputs_ab = inputs[:, self.channels_l, ...], inputs[:, self.channels_ab, ...]
-
-        _, feat_l, _, feat_ab = self(inputs_l, inputs_ab)
+        feat_l, feat_ab = self(inputs)
         feat = torch.cat((feat_l, feat_ab), 1)
         return feat
 
@@ -47,14 +47,17 @@ def main(args):
                                       args.train_image_list,
                                       args.test_image_list,
                                       args.label_folder,
-                                      train_batch_size=args.train_batch_size,
                                       test_batch_size=args.test_batch_size,
-                                      augment=args.augment,
                                       num_workers=args.num_workers)
     dm.setup(stage="predict")
 
     trainer = pl.Trainer(gpus=args.gpu)
-    predictions = trainer.predict(datamodule=dm)
+    predictions = trainer.predict(task, datamodule=dm)
+    predictions = torch.stack(predictions)
+    
+    predictions = predictions.cpu().detach().numpy()
+    with open(args.features_path, 'wb') as f:
+        np.save(f, predictions)
 
 
 def _test_model(args):
