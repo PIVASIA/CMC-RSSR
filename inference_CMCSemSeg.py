@@ -20,29 +20,27 @@ warnings.filterwarnings("ignore")
 
 
 class FeatureExtractorTask(pl.LightningModule):
-    def __init__(self, model):
+    def __init__(self, model, channels_l, channels_ab):
         super().__init__()
         self.model = model
+        self.channels_l = channels_l
+        self.channels_ab = channels_ab
 
     def predict_step(self, batch, batch_idx: int, dataloader_idx: int = None):
-        _, feat_l, _, feat_ab = self(batch)
+        inputs, _, _ = batch
+        inputs_l, inputs_ab = inputs[:, self.channels_l, ...], inputs[:, self.channels_ab, ...]
 
+        _, feat_l, _, feat_ab = self(inputs_l, inputs_ab)
+        feat = torch.cat((feat_l, feat_ab), 1)
+        return feat
 
 
 def main(args):
     # load pre-trained CMC model as encoders
     model = CMCSemSegModel.load_from_checkpoint(
                         checkpoint_path=args.model_path)
+    task = FeatureExtractorTask(model, args.channels_l, args.channels_ab)
 
-    activation = {}
-    def get_activation(name):
-        def hook(model, input, output):
-            activation[name] = output.detach()
-        return hook
-    
-    model.ab_to_l.upsample_blocks[4].register_forward_hook(get_activation('ab2l'))
-    model.l_to_ab.upsample_blocks[4].register_forward_hook(get_activation('l2ab'))
-    
     # set the datamodule
     dm = MultispectralImageDataModule(args.dataset_name,
                                       args.image_folder,
@@ -55,12 +53,8 @@ def main(args):
                                       num_workers=args.num_workers)
     dm.setup(stage="predict")
 
-    inputs, _, _ = next(iter(dm.test_dataloader()))
-    inputs = inputs.float()
-    inputs_l, inputs_ab = inputs[:, args.channels_l, ...], inputs[:, args.channels_ab, ...]
-    output = model(inputs_l, inputs_ab)
-        
-    print(activation.keys())
+    trainer = pl.Trainer(gpus=args.gpu)
+    predictions = trainer.predict(datamodule=dm)
 
 
 def _test_model(args):
