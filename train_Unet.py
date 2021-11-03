@@ -134,7 +134,7 @@ def _test_model():
     # summary(model, (11, 256, 256), device="cpu")
 
 
-def main():
+def train():
     # parse the args
     args = parse_option(False)
 
@@ -197,4 +197,4 @@ def main():
 
 if __name__ == "__main__":
     # _test_model()
-    main()
+    train()

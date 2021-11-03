@@ -71,7 +71,7 @@ class CMCSemSegModel(pl.LightningModule):
         feat_l = self._forward_l(inputs_l)
         feat_ab = self._forward_ab(inputs_ab)
 
-        return feat_l, feat_ab
+        return [feat_l, feat_ab]
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(),
@@ -121,10 +121,7 @@ class CMCSemSegModel(pl.LightningModule):
         self.log('val_loss', loss, on_step=False, on_epoch=True)
 
 
-def main():
-    # parse the args
-    args = parse_option(True)
-
+def main(args):
     # set the datamodule
     dm = MultispectralImageDataModule(args.dataset_name,
                                       args.image_folder,
@@ -160,10 +157,7 @@ def main():
     trainer.fit(model, dm)
 
 
-def _test_model():
-    # parse the args
-    args = parse_option(True)
-
+def _test_model(args):
     # set the datamodule
     dm = MultispectralImageDataModule(args.dataset_name,
                                       args.image_folder,
@@ -199,6 +193,10 @@ def _test_model():
     print(inputs_l.min(), inputs_l.max())
     print(inputs_ab.min(), inputs_ab.max())
 
+
 if __name__ == '__main__':
-    main()
-    # _test_model()
+    # parse the args
+    args = parse_option(True)
+
+    main(args)
+    # _test_model(args)

@@ -160,10 +160,12 @@ class Unet(nn.Module):
             skip_features = features[skip_name]
             x = upsample_block(x, skip_features)
 
+        output = None
         if self.final_conv is not None:
-            x = self.final_conv(x)
+            output = self.final_conv(x)
 
-        return x
+
+        return output, x
 
     def _forward_backbone(self, x):
         """ Forward propagation in backbone encoder network.  """
@@ -227,9 +229,8 @@ class Unet(nn.Module):
 if __name__ == "__main__":
     import torchvision.models as models
     backbone = models.resnet18(pretrained=False)
+    model = Unet(backbone, 3, n_classes=5)
 
     from torchsummary import summary
     # summary(backbone, (3, 256, 256), device="cpu")
-    
-    model = Unet(backbone, 3, n_classes=5)
     summary(model, (3, 256, 256), device="cpu")
