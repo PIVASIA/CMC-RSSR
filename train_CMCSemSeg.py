@@ -59,19 +59,19 @@ class CMCSemSegModel(pl.LightningModule):
 
     def _forward_l(self, x):
         x = x.float()
-        feat = self.l_to_ab(x)
-        return feat
+        output, feat = self.l_to_ab(x)
+        return output, feat
 
     def _forward_ab(self, x):
         x = x.float()
-        feat = self.ab_to_l(x)
-        return feat
+        output, feat = self.ab_to_l(x)
+        return output, feat
 
     def forward(self, inputs_l, inputs_ab):
-        feat_l = self._forward_l(inputs_l)
-        feat_ab = self._forward_ab(inputs_ab)
+        output_l, feat_l = self._forward_l(inputs_l)
+        output_ab, feat_ab = self._forward_ab(inputs_ab)
 
-        return [feat_l, feat_ab]
+        return [output_l, feat_l, output_ab, feat_ab]
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(),
@@ -87,7 +87,7 @@ class CMCSemSegModel(pl.LightningModule):
         inputs_l, inputs_ab = inputs[:, self.channels_l, ...], inputs[:, self.channels_ab, ...]
 
         # forward
-        out_l, out_ab = self(inputs_l, inputs_ab)
+        out_l, _, out_ab, _ = self(inputs_l, inputs_ab)
 
         # calculating loss
         loss_l = self.criterion(out_l, inputs_ab)
@@ -108,7 +108,7 @@ class CMCSemSegModel(pl.LightningModule):
         inputs_l, inputs_ab = inputs[:, self.channels_l, ...], inputs[:, self.channels_ab, ...]
 
         # forward
-        out_l, out_ab = self(inputs_l, inputs_ab)
+        out_l, _, out_ab, _ = self(inputs_l, inputs_ab)
 
         # calculating loss
         loss_l = self.criterion(out_l, inputs_ab)

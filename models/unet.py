@@ -164,7 +164,6 @@ class Unet(nn.Module):
         if self.final_conv is not None:
             output = self.final_conv(x)
 
-
         return output, x
 
     def _forward_backbone(self, x):
