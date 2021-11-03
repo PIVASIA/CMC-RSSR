@@ -169,6 +169,18 @@ class MultispectralImageDataModule(LightningDataModule):
                                               label_folder=self.label_folder,
                                               augment=False,
                                               torch_transform=self.torch_transform)
+        
+        if stage == "predict" or stage is None:
+            with open(self.test_image_list, 'r', encoding="utf-8") as f:
+                names = f.readlines()        
+            images_to_use = [name.strip() for name in names]
+
+            self.predict_dataset = \
+                    MultispectralImageDataset(images_to_use,
+                                              image_folder=self.image_folder,
+                                              label_folder=self.label_folder,
+                                              augment=False,
+                                              torch_transform=self.torch_transform)
 
     def train_dataloader(self):
         train_sampler = None
@@ -197,6 +209,17 @@ class MultispectralImageDataModule(LightningDataModule):
         if self.test_dataset is not None:
             return DataLoader(
                 self.test_dataset,
+                batch_size=self.test_batch_size,
+                shuffle=False,
+                num_workers=self.num_workers,
+                pin_memory=True
+            )
+        return None
+    
+    def predict_dataloader(self):
+        if self.predict_dataset is not None:
+            return DataLoader(
+                self.predict_dataset,
                 batch_size=self.test_batch_size,
                 shuffle=False,
                 num_workers=self.num_workers,

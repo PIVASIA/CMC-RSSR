@@ -25,7 +25,8 @@ class FeatureExtractorTask(pl.LightningModule):
         self.model = model
 
     def predict_step(self, batch, batch_idx: int, dataloader_idx: int = None):
-        return self(batch)
+        _, feat_l, _, feat_ab = self(batch)
+
 
 
 def main(args):
@@ -52,7 +53,7 @@ def main(args):
                                       test_batch_size=args.test_batch_size,
                                       augment=args.augment,
                                       num_workers=args.num_workers)
-    dm.setup(stage="test")
+    dm.setup(stage="predict")
 
     inputs, _, _ = next(iter(dm.test_dataloader()))
     inputs = inputs.float()
