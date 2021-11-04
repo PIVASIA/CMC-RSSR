@@ -6,14 +6,16 @@ from glob import glob
 from osgeo import gdal
 from tqdm import tqdm
 
+from multispectral import load_multispectral
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Making Remote Sensing Tiles for learning")
+    parser = argparse.ArgumentParser(description="Making Remote Sensing Tiles for supervised learning")
     # basic
-    parser.add_argument('-i', '--input-path', type=str, required=True, help='input dir with tiles image')
-    parser.add_argument('-o', '--output-path', type=str, required=True, help='output dir for filenames.txt')
-    parser.add_argument('--valid-width', type=int, default=256)
-    parser.add_argument('--valid-height', type=int, default=256)
+    parser.add_argument('-i', '--input-image', type=str, required=True, help='input image')
+    parser.add_argument('-l', '--input-label', type=str, required=True, help='input label image')
+    parser.add_argument('-o', '--output-path', type=str, required=True, help='output')
+    parser.add_argument('--target-width', type=int, default=256)
+    parser.add_argument('--target-height', type=int, default=256)
     parser.add_argument('-t', '--threshold', type=float, default=0.3)
 
     args = parser.parse_args()
@@ -22,29 +24,26 @@ def parse_args():
 
 
 def main(args):
-    valids = []
-    for filepath in tqdm(glob(os.path.join(args.input_path, "*.TIF"))):
-        basename = os.path.basename(filepath)
+    tiles = []
 
-        # Open the file
-        raster = gdal.Open(filepath)
-        
-        # validate size
-        if raster.RasterYSize != args.valid_height or \
-           raster.RasterXSize != args.valid_width:
-           continue
-        
-        # validate no-data value
-        # sample = raster.GetRasterBand(1).ReadAsArray()
-        # nonzero = np.count_nonzero(sample)
-        # if (nonzero / (args.valid_height * args.valid_width)) < args.threshold:
-        #     continue
+    image = load_multispectral(args.input_image, nodata=0)
 
-        valids.append(basename)
+    label = load_multispectral(args.input_label, nodata=0)
+    # extract points with label
+    ys, xs = np.nonzero(label)
     
-    with open(os.path.join(args.output_path, "filenames.txt"), 'w') as fou:
-        for filename in valids:
-            fou.write(filename + "\n")
+    valids = []
+    for y, x in zip(ys, xs):
+        is_all_zero = np.all((image[y, x, :] == 0))
+        if not is_all_zero:
+            valids.append([y, x, label[y, x]])
+
+
+    with open(args.output_path, mode='w') as fou:
+        writer = csv.writer(fou, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        for row in valids:
+            writer.writerow(row)
+
 
 if __name__ == "__main__":
     args = parse_args()
