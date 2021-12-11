@@ -3,121 +3,25 @@ from __future__ import print_function
 import os
 import warnings
 
+import mlflow
+mlflow.set_tracking_uri("databricks")
+mlflow.set_experiment("/Users/hunglv@piv.asia/cmc-species")
+import mlflow.pytorch
+
 import torch
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
 from dataset import MultispectralImageDataModule
-import models.resnet as resnet
-from NCE.NCEAverage import NCEAverage
-from NCE.NCECriterion import NCECriterion
+from models.cmc import CMCModel
 from util import parse_option
 
 warnings.filterwarnings("ignore")
 
 
-class CMCModel(pl.LightningModule):
-    def __init__(self,
-                 n_data,
-                 args):
-        super().__init__()
-        self.save_hyperparameters()
-
-        self.n_data = n_data
-
-        self.model = args.model
-        self.channels_l = args.channels_l
-        self.channels_ab = args.channels_ab
-        self.feat_dim = args.feat_dim
-        self.nce_k = args.nce_k
-        self.nce_t = args.nce_t
-        self.nce_m = args.nce_m
-        self.learning_rate = args.learning_rate
-        self.momentum = args.momentum
-        self.weight_decay = args.weight_decay
-
-        self._build_model()
-        self._set_criterion()
-
-    def _build_model(self):
-        # set the model
-        if self.model.startswith('resnet'):
-            model = getattr(resnet, self.model, lambda: None)
-            self.l_to_ab = model(in_channel=len(self.channels_l),
-                                 low_dim=self.feat_dim,
-                                 normalize_output=True)
-            self.ab_to_l = model(in_channel=len(self.channels_ab),
-                                 low_dim=self.feat_dim,
-                                 normalize_output=True)
-        else:
-            raise ValueError(
-                'model not supported yet {}'.format(self.model)
-            )
-
-    def _set_criterion(self):
-        # setup criterion
-        self.contrast = NCEAverage(self.feat_dim,
-                                   self.n_data,
-                                   self.nce_k,
-                                   self.nce_t,
-                                   self.nce_m)
-        self.criterion_l = NCECriterion(self.n_data)
-        self.criterion_ab = NCECriterion(self.n_data)
-
-    def _forward_l(self, x):
-        feat = self.l_to_ab(x)
-        return feat
-
-    def _forward_ab(self, x):
-        feat = self.ab_to_l(x)
-        return feat
-
-    def forward(self, x):
-        x = x.float()
-
-        l, ab = x[:, self.channels_l, ...], x[:, self.channels_ab, ...]
-        feat_l = self._forward_l(l)
-        feat_ab = self._forward_ab(ab)
-        return feat_l, feat_ab
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.parameters(),
-                                    lr=self.learning_rate,
-                                    momentum=self.momentum,
-                                    weight_decay=self.weight_decay)
-
-        return optimizer
-
-    def training_step(self, train_batch, batch_idx):
-        inputs, _, index = train_batch
-
-        # forward
-        feat_l, feat_ab = self(inputs)
-
-        # calculating loss
-        out_l, out_ab = self.contrast(feat_l, feat_ab, index)
-
-        l_loss = self.criterion_l(out_l)
-        ab_loss = self.criterion_ab(out_ab)
-        l_prob = out_l[:, 0].mean()
-        ab_prob = out_ab[:, 0].mean()
-        loss = l_loss + ab_loss
-
-        self.log('train_loss', loss, on_step=False, on_epoch=True)
-
-        return {
-            "loss": loss,
-            "l_loss": l_loss,
-            "l_prob": l_prob,
-            "ab_loss": ab_loss,
-            "ab_prob": ab_prob
-        }
-
-    def validation_step(self, val_batch, batch_idx):
-        pass
-
-
 def main():
+    mlflow.pytorch.autolog()
+    
     # parse the args
     args = parse_option(True)
 
@@ -134,10 +38,7 @@ def main():
     dm.setup(stage="fit")
 
     # set the model
-    if os.path.isfile(args.resume):
-        model = CMCModel.load_from_checkpoint(args.resume)
-    else:
-        model = CMCModel(dm.n_data, args)
+    model = CMCModel(dm.n_data, args)
 
     # define callbacks
     checkpoint_callback = ModelCheckpoint(
@@ -148,9 +49,27 @@ def main():
         mode="min"
     )
 
-    trainer = pl.Trainer(callbacks=[checkpoint_callback],
-                         gpus=args.gpu,
-                         max_epochs=args.epochs)
+    early_stop_callback = EarlyStopping(monitor="train_loss", 
+                                        min_delta=0.005, 
+                                        patience=3, 
+                                        verbose=False, 
+                                        mode="min")
+
+    callbacks=[checkpoint_callback, early_stop_callback]
+
+    # use float (e.g 1.0) to set val frequency in epoch
+    # if val_check_interval is integer, val frequency is in batch step
+    training_params = {
+        "callbacks": callbacks,
+        "gpus": args.train_loss,
+        "val_check_interval": 1.0,
+        "max_epochs": args.epochs
+    }
+
+    if args.resume is not None:
+        training_params["resume_from_checkpoint"] = args.resume
+    
+    trainer = pl.Trainer(**training_params)
     trainer.fit(model, dm)
 
 
