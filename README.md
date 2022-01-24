@@ -24,8 +24,11 @@ Pre-trained supervised models are used from torchvision model zoo.
 
 To run the training of the CMC model use the following python script.
 
-```
+<!-- ```
 python train_CMC.py --data_folder PATH_TO_FOLDER_CONTAINING_THE_IMAGES_OR_LMDB_FOLDER_FOR_MS_IMAGES --image_list PATH_TO_FILE_WITH_IMAGE_LIST --model MODEL_NAME --model_path PATH_TO_DIRECTORY_TO_SAVE_THE_MODEL --batch_size BATCH_SIZE [--multispectral --pca --ben]
+``` -->
+```
+python train_CMC.py --image_folder PATH_TO_FOLDER_CONTAINING_THE_IMAGES --amv_folder PATH_TO_FILE_WITH_AMV --model MODEL_NAME --model_path PATH_TO_DIRECTORY_TO_SAVE_THE_MODEL --channels_l BANDS OF IMAGE --channels_ab BANDS OF AMV
 ```
 
 Use the `--multispectral` flag if you are training on multispectral data and if you want PCA based views use the `--pca` flag.

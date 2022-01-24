@@ -22,11 +22,11 @@ class multispectral_alexnet(nn.Module):
     def __init__(self, feat_dim=128):
         super(multispectral_alexnet, self).__init__()
 
-        self.l_to_ab = alexnet_half(in_channel=5, feat_dim=feat_dim)
-        self.ab_to_l = alexnet_half(in_channel=5, feat_dim=feat_dim)
+        self.l_to_ab = alexnet_half(in_channel=3, feat_dim=feat_dim)
+        self.ab_to_l = alexnet_half(in_channel=3, feat_dim=feat_dim)
 
     def forward(self, x, layer=8):
-        l, ab = x[:, [0, 6, 7, 8, 9], ...], x[:, [1, 2, 3, 4, 5], ...]
+        l, ab = x[:, [0, 1, 2], ...], x[:, [3, 4, 5], ...]
         feat_l = self.l_to_ab(l, layer)
         feat_ab = self.ab_to_l(ab, layer)
         return feat_l, feat_ab
@@ -123,7 +123,7 @@ class Normalize(nn.Module):
 if __name__ == '__main__':
 
     import torch
-    model = alexnet().cuda()
+    model = multispectral_alexnet().cuda()
     data = torch.rand(10, 3, 224, 224).cuda()
     out = model.compute_feat(data, 5)
 

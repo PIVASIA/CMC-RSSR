@@ -2,3 +2,4 @@ data_splits/NWPU*
 */__pycache__
 .vscode/*
 lightning_logs/
+*/memory_nce_4096_resnet50_lr_0.03_decay_0.0001_bsz_256_aug_False

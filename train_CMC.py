@@ -16,6 +16,12 @@ from dataset import MultispectralImageDataset
 from transform import StandardScaler, random_transform_generator
 from constants import DATASET_MEAN, DATASET_STD
 
+import mlflow
+
+mlflow.set_tracking_uri("databricks")
+mlflow.set_experiment("/Users/hunglv@piv.asia/CMC_Himawari")
+import mlflow.pytorch
+
 warnings.filterwarnings("ignore")
 
 
@@ -141,7 +147,7 @@ class CMCDataModule(pl.LightningDataModule):
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
             self.train_dataset = \
-                MultispectralImageDataset(self.args.image_list,
+                MultispectralImageDataset(self.args.amv_folder,
                                           self.args.image_folder,
                                           label_folder_path=None,
                                           augment=self.args.augment,
@@ -193,6 +199,7 @@ def main():
     trainer = pl.Trainer(callbacks=[checkpoint_callback],
                          gpus=args.gpu,
                          max_epochs=args.epochs)
+    mlflow.pytorch.autolog()
     trainer.fit(model, dm)
 
 

@@ -12,7 +12,7 @@ from transform import (TransformParameters, random_transform,
 
 class MultispectralImageDataset(datautils.Dataset):
     def __init__(self, 
-                 images_to_use,
+                 amv_folder_path,
                  img_folder_path,
                  label_folder_path=None,
                  augment=False,
@@ -20,11 +20,13 @@ class MultispectralImageDataset(datautils.Dataset):
                  torch_transform=None):
         super(MultispectralImageDataset, self).__init__()
 
-        with open(images_to_use, 'r', encoding="utf-8") as f:
-            names = f.readlines()        
+        # with open(img_folder_path, 'r', encoding="utf-8") as f:
+        #     names = f.readlines()
+        names = os.listdir(img_folder_path)
+        names = names[1:4]        
         self.filenames = \
             [name.strip() for name in names]
-        
+        self.amv_folder_path = amv_folder_path
         self.img_folder_path = img_folder_path
         self.label_folder_path = label_folder_path
 
@@ -41,10 +43,12 @@ class MultispectralImageDataset(datautils.Dataset):
     def __getitem__(self, idx):
         # read image
         img_path = os.path.join(self.img_folder_path, self.filenames[idx])
-
+        amv_path = os.path.join(self.amv_folder_path, self.filenames[idx])
         if not os.path.isfile(img_path):
             raise FileNotFoundError("Image's not existed: {0}".format(img_path))
-        img = load_multispectral(img_path)
+        if not os.path.isfile(amv_path):
+            raise FileNotFoundError("AMV_images's not existed: {0}".format(amv_path))
+        img = load_multispectral(img_path, amv_path)
 
         # read label
         label = None
@@ -56,17 +60,18 @@ class MultispectralImageDataset(datautils.Dataset):
             label = Image.open(label_path).convert('L')
             label = np.array(label)
         
-        # data augmentation
-        if self.augment:
-            transform = adjust_transform_for_image(random_transform(), 
-                                                   img.shape, 
-                                                   self.augment_params.relative_translation)
-            img = apply_transform(transform, img, self.augment_params)
-            if label:
-                label = apply_transform(transform, label, self.augment_params)
+        # # data augmentation
+        # if self.augment:
+        #     transform_img = adjust_transform_for_image(random_transform(), 
+        #                                            img.shape, 
+        #                                            self.augment_params.relative_translation)
+        #     img = apply_transform(transform_img, img, self.augment_params)
 
-        # transform to Tensor
-        img = self.torch_transform(img)
+        #     if label:
+        #         label = apply_transform(transform, label, self.augment_params)
+
+        # # transform to Tensor
+        # img = self.torch_transform(img)
 
         if label:
             label = torch.from_numpy(label).float()

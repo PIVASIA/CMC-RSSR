@@ -94,7 +94,11 @@ def parse_option(CMC_training=False):
                         help='which layer to evaluate')
 
     # specify folder
+    parser.add_argument('--amv_folder', type=str, default=None, 
+                        help='path to amv image data')
     parser.add_argument('--image_folder', type=str, default=None, 
+                        help='path to image data')
+    parser.add_argument('--data_folder', type=str, default=None, 
                         help='path to image data')
     parser.add_argument('--label_folder', type=str, default=None, 
                         help='path to label data')
